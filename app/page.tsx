@@ -1,7 +1,15 @@
-export default function Home() {
+import React from 'react';
+import Header from './components/header';
+import Footer from './components/footer';
+
+export default function App() {
   return (
     <div>
-      <h1>Home</h1>
+      <Header />
+      <main>
+        {/* Other content goes here */}
+      </main>
+      <Footer />
     </div>
   );
 }
