@@ -8,14 +8,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
+      const requiredFields = [ 'email', 'password','fullName',]; 
+      const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Missing required fields: ${missingFields.join(', ')}`,
+        });
+      }
 
       const existingUser = await User.findOne({ email: req.body.email });
 
       if (existingUser) {
         return res.status(400).json({ success: false, message: 'User with this email already exists' });
       }
+
       const user = new User(req.body);
       await user.save();
+
       return res.status(201).json({ success: true, data: user });
     } catch (error) {
       let errorMessage = 'An unknown error occurred';
