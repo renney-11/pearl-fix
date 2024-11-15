@@ -8,6 +8,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
+
+      const existingUser = await User.findOne({ email: req.body.email });
+
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'User with this email already exists' });
+      }
       const user = new User(req.body);
       await user.save();
       return res.status(201).json({ success: true, data: user });
