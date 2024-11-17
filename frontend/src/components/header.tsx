@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function Header() {
   return (
     <nav className="bg-blue-900 py-6 px-8">
