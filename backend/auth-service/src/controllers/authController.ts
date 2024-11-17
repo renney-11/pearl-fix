@@ -1,6 +1,5 @@
 import { RequestHandler } from "express";
-import "../types/express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jose from "jose";
 import User from "../models/User";
 import { IUser } from "../models/User";
@@ -50,11 +49,11 @@ export const register: RequestHandler = async (req, res) => {
       },
     };
 
-    // generate JWT token
-    const secretKey = jose.base64url.decode(process.env.JWT_SECRET!);
-    const token = await new jose.EncryptJWT(payload).encrypt(secretKey);
+    // // generate JWT token
+    // const secretKey = jose.base64url.decode(process.env.JWT_SECRET!);
+    // const token = await new jose.EncryptJWT(payload).encrypt(secretKey);
 
-    res.json({ token });
+    res.json({ token: "token" });
     return;
   } catch (error) {
     console.error(error);

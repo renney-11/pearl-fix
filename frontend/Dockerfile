@@ -1,23 +1,21 @@
-# Use the official Node.js 22 image as the base
+# Use Node.js version 22
 FROM node:22-alpine
 
 # Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
-
 # Install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy the rest of the application code
+# Copy the application code
 COPY . .
 
-# Build the Next.js application
-RUN npm run build
-
-# Expose the port on which your app runs
+# Expose port
 EXPOSE 3000
 
-# Define the command to start the app
-CMD ["npm", "start"]
+# Set environment variables
+ENV NODE_ENV=development
+
+# Start the application
+CMD ["npm", "run", "dev"]

@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  # Frontend Web Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    depends_on:
+      - auth-service
+
+  # Authentication Service
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/auth-service:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongo-primary:27017/tooth-beacon
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - mongo-primary
+    networks:
+      - mongo-cluster
+
+  mongo-primary:
+    image: mongo:latest
+    container_name: mongo-primary
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./infrastructure/database/data/primary:/data/db
+    networks:
+      - mongo-cluster
+
+networks:
+  mongo-cluster:
