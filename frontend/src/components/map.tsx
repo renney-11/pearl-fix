@@ -1,10 +1,7 @@
 'use client';
 import 'leaflet/dist/leaflet.css';
-
-// frontend/src/components/map.tsx
 import React from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 
 const Map: React.FC = () => {
   // Coordinates for Gothenburg
