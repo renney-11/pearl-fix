@@ -1,22 +1,26 @@
 import Footer from '@/src/components/footer';
-import Header from "@/src/components/header";
-import SubBackground from "@/src/components/subbackground";
-import Map from "@/src/components/map";  // Import the Map component
+import Header from '@/src/components/header';
+import SubBackground from '@/src/components/subbackground';
+import Background from '@/src/components/background';
+import Map from '@/src/components/map';
 
 export default function App() {
   return (
     <div>
-      <Header />
       <main>
-        <div>
+        <Background>
+          <Header />
           <SubBackground>
-            {/* Integrate the Map component here */}
-            <Map />
+            <h2 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+              find your nearest care
+            </h2>
+            <div className="m-10">
+              <Map />
+            </div>
           </SubBackground>
-        </div>
-        {/* Other content goes here */}
+          <Footer />
+        </Background>
       </main>
-      <Footer />
     </div>
   );
 }
