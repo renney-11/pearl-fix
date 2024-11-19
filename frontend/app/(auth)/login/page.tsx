@@ -26,7 +26,7 @@ export default function Login() {
               type="submit"
                className="py-2 px-8 mt-4 text-blue-900 bg-white rounded-full font-semibold hover:bg-gray-200 mx-auto block"
             >
-              sign up
+              login
             </button>
           </form>
           <p className="mt-4 text-center text-white">
