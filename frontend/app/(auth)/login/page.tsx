@@ -30,9 +30,9 @@ export default function Login() {
             </button>
           </form>
           <p className="mt-4 text-center text-white">
-            already have an account?{" "}
-            <a href="/login" className="font-semibold text-blue-300">
-              log in
+          new to tooth beacon?{" "}
+            <a href="/register" className="font-semibold text-blue-300">
+            create an account
             </a>
           </p>
         </div>
