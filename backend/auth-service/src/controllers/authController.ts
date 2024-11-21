@@ -51,9 +51,15 @@ export const register: RequestHandler = async (req, res) => {
 
     // generate JWT token
     const secretKey = base64url.decode(process.env.JWT_SECRET!);
+    console.log("Decoded JWT_SECRET length:", secretKey.length); // Should print: 32
+    if (secretKey.length !== 32) {
+        throw new Error('Invalid JWT_SECRET length. It must be a 32-byte base64-encoded string for A256GCM.');
+    }
+
     const token = await new EncryptJWT(payload)
-      .setProtectedHeader({ alg: "dir", enc: "A128CBC-HS256" })
-      .encrypt(secretKey);
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .setExpirationTime('1h')
+    .encrypt(secretKey);
 
     res.json({ token });
     return;
@@ -96,9 +102,15 @@ export const login: RequestHandler = async (req, res) => {
 
     // generate JWT token
     const secretKey = base64url.decode(process.env.JWT_SECRET!);
+    console.log("Decoded JWT_SECRET length:", secretKey.length); // Should print: 32
+    if (secretKey.length !== 32) {
+        throw new Error('Invalid JWT_SECRET length. It must be a 32-byte base64-encoded string for A256GCM.');
+    }
+
     const token = await new EncryptJWT(payload)
-      .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-      .encrypt(secretKey);
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .setExpirationTime('1h')
+    .encrypt(secretKey);
 
     res.json({ token });
   } catch (error) {
