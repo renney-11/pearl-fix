@@ -1,7 +1,6 @@
 import { RequestHandler } from "express";
-import "../types/express";
-import bcrypt from "bcrypt";
-import jose from "jose";
+import bcrypt from "bcryptjs";
+import { base64url, EncryptJWT } from "jose";
 import User from "../models/User";
 import { IUser } from "../models/User";
 
@@ -51,8 +50,10 @@ export const register: RequestHandler = async (req, res) => {
     };
 
     // generate JWT token
-    const secretKey = jose.base64url.decode(process.env.JWT_SECRET!);
-    const token = await new jose.EncryptJWT(payload).encrypt(secretKey);
+    const secretKey = base64url.decode(process.env.JWT_SECRET!);
+    const token = await new EncryptJWT(payload)
+      .setProtectedHeader({ alg: "dir", enc: "A128CBC-HS256" })
+      .encrypt(secretKey);
 
     res.json({ token });
     return;
@@ -94,8 +95,10 @@ export const login: RequestHandler = async (req, res) => {
     };
 
     // generate JWT token
-    const secretKey = jose.base64url.decode(process.env.JWT_SECRET!);
-    const token = await new jose.EncryptJWT(payload).encrypt(secretKey);
+    const secretKey = base64url.decode(process.env.JWT_SECRET!);
+    const token = await new EncryptJWT(payload)
+      .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+      .encrypt(secretKey);
 
     res.json({ token });
   } catch (error) {
@@ -111,7 +114,7 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
       res.status(400).json({ message: "User not authenticated" });
       return;
     }
-    const user = await User.findById(req.user.id).select("-password"); // Exclude password
+    const user = await User.findById(req.user.id).select(["-password", "-id"]); // Exclude password
     res.json(user);
     return;
   } catch (error) {

@@ -1,26 +1,21 @@
-# Use the official Node.js 22 image as the base
 FROM node:22-alpine
 
-# Set the working directory in the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy the rest of your application code
 COPY . .
 
-# Build TypeScript code
-RUN npm run build
-
-# Expose the port the app runs on
+# Expose the port
 EXPOSE 5000
 
-# Define environment variable for production
-ENV NODE_ENV=production
+# Set environment variables
+ENV NODE_ENV=development
 
 # Start the application
-CMD ["node", "dist/server.js"]
+CMD ["npm", "run", "dev"]

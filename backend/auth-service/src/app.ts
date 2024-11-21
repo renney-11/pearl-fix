@@ -18,7 +18,7 @@ app.use(
 dbConnect();
 
 // Use authentication routes
-app.use("/api/auth", authRoutes);
+app.use("/api/v1/auth", authRoutes);
 
 
 // Error handler middleware
