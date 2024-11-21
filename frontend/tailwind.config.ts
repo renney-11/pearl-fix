@@ -12,6 +12,9 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        'main-blue' : '#1E3582',
+        'transparent-blue' : 'rgba(108,123,171,0.4)',
+        'transparent-input' : 'rgba(0,0,0,0.25)',
       },
     },
   },
