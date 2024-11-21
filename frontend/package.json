@@ -13,6 +13,9 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.1",
+    "@fortawesome/free-solid-svg-icons": "^6.7.1",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "jose": "^5.9.6",
     "mongoose": "^8.8.1",
     "mqtt": "^5.10.1",
@@ -23,6 +26,7 @@
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.1",
+    "@types/leaflet": "^1.9.14",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
