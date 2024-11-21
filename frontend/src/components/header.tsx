@@ -18,7 +18,7 @@ export default function Header() {
             <span className="block h-0.5 w-0 bg-white group-hover:w-full transition-all duration-300"></span>
           </a>
           <a
-            href="/sign-up"
+            href="/register"
             className="px-4 py-2 bg-white text-blue-900 rounded-full font-semibold hover:bg-gray-200"
           >
             sign up

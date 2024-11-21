@@ -3,11 +3,13 @@ export default function Login() {
       <div className="flex items-center justify-center min-h-screen bg-main-blue">
         <div className="w-full max-w-lg p-8 bg-transparent-blue rounded-lg shadow-lg">
           <div className="flex flex-col items-center mb-8">
+          <a href="/">
             <img
               src="/assets/logo_vertical.png"
               alt="Tooth Beacon Logo"
               className="w-40 h-35 mb-4 mt-1"
             />
+          </a>
           </div>
           <form className="space-y-4">
 
