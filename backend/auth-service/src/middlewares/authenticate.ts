@@ -14,7 +14,7 @@ const authenticate: RequestHandler = async (req, res, next) => {
   try {
     const secretKey = Buffer.from(process.env.JWT_SECRET!, 'base64');
     const decodedToken = await jwtDecrypt(token, secretKey);
-    req.user = decodedToken.payload.user as { id: string };
+    req.patient = decodedToken.payload.patient as { id: string };
     
     next();
   } catch (error) {

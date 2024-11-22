@@ -1,13 +1,13 @@
 import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import { base64url, EncryptJWT } from "jose";
-import User from "../models/User";
-import { IUser } from "../models/User";
+import Patient from "../models/Patient";
+import { IPatient } from "../models/Patient";
 
 declare global {
   namespace Express {
     interface Request {
-      user?: {
+      patient?: {
         id: string;
       };
     }
@@ -15,37 +15,35 @@ declare global {
 }
 
 export const register: RequestHandler = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
   try {
-    // Check if user exists
-    let user: IUser | null;
-    user = await User.findOne({ email });
-    if (user) {
-      res.status(400).json({ message: "User already exists" });
+    // Check if patient exists
+    let patient: IPatient | null;
+    patient = await Patient.findOne({ email });
+    if (patient) {
+      res.status(400).json({ message: "Patient already exists" });
       return;
     }
-    // Create new user
-    user = new User({
+    // Create new patient
+    patient = new Patient({
       name,
       email,
       password,
-      role,
     });
     // Hash password
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    patient.password = await bcrypt.hash(password, salt);
 
-    // Save user
-    await user.save();
+    // Save patient
+    await patient.save();
 
     // Return token
     const payload = {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+      patient: {
+        id: patient.id,
+        name: patient.name,
+        email: patient.email,
       },
     };
 
@@ -70,21 +68,21 @@ export const register: RequestHandler = async (req, res) => {
   }
 };
 
-// Login user
+// Login patient
 export const login: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check if user exists
-    let user: IUser | null;
-    user = await User.findOne({ email });
-    if (!user) {
+    // Check if patient exists
+    let patient: IPatient | null;
+    patient = await Patient.findOne({ email });
+    if (!patient) {
       res.status(400).json({ message: "Invalid credentials" });
       return;
     }
 
     // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, patient.password);
     if (!isMatch) {
       res.status(400).json({ message: "Invalid credentials" });
       return;
@@ -92,11 +90,10 @@ export const login: RequestHandler = async (req, res) => {
 
     // Return token
     const payload = {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+      patient: {
+        id: patient.id,
+        name: patient.name,
+        email: patient.email,
       },
     };
 
@@ -122,12 +119,12 @@ export const login: RequestHandler = async (req, res) => {
 // Get user
 export const getCurrentUser: RequestHandler = async (req, res) => {
   try {
-    if (!req.user) {
+    if (!req.patient) {
       res.status(400).json({ message: "User not authenticated" });
       return;
     }
-    const user = await User.findById(req.user.id).select(["-password", "-id"]); // Exclude password
-    res.json(user);
+    const patient = await Patient.findById(req.patient.id).select(["-password", "-id"]); // Exclude password
+    res.json(patient);
     return;
   } catch (error) {
     console.error(error);
