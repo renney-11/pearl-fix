@@ -25,7 +25,7 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
       return;
     }
 
-    // Create new clinic
+    // Creates a new clinic
     clinic = new Clinic({
       city,
       address,
@@ -48,9 +48,37 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
         address: clinic.address,
         openingHours: clinic.openingHours,
         coordinates: clinic.coordinates,
-      }
+      },
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
+// Get all clinics
+export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const clinics = await Clinic.find();
+    res.status(200).json({ clinics });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get a clinic by address
+export const getClinicByAddress: RequestHandler = async (req, res): Promise<void> => {
+  const { address } = req.params;
+
+  try {
+    const clinic = await Clinic.findOne({ address });
+    if (!clinic) {
+      res.status(404).json({ message: "Clinic not found" });
+      return;
+    }
+
+    res.status(200).json({ clinic });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
