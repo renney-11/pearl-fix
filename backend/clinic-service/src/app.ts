@@ -1,6 +1,6 @@
 import express from "express";
 import dbConnect from "./utils/dbConnect";
-import authRoutes from "./routes/auth";
+import clinicRoutes from "./routes/clinic";
 import errorHandler from "./middlewares/errorHandler";
 import cors from "cors";
 import dotenv from "dotenv"; //needed?
@@ -19,8 +19,8 @@ app.use(
 // Connect to the database
 dbConnect();
 
-// Use authentication routes
-app.use("/api/v1/auth", authRoutes);
+// Use clinic routes
+app.use("/api/v1/clinic", clinicRoutes);
 
 
 // Error handler middleware
