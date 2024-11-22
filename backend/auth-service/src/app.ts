@@ -3,6 +3,8 @@ import dbConnect from "./utils/dbConnect";
 import authRoutes from "./routes/auth";
 import errorHandler from "./middlewares/errorHandler";
 import cors from "cors";
+import dotenv from "dotenv"; //needed?
+dotenv.config(); //needed?
 
 const app = express();
 
