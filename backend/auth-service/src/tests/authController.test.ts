@@ -1,5 +1,6 @@
 import request from 'supertest';
 import app from '../app';
+import mongoose from 'mongoose'; // Import to close DB connection in afterAll
 
 describe('AuthController', () => {
   it('should register a new patient', async () => {
@@ -106,5 +107,9 @@ describe('AuthController', () => {
   
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('token');
-  });  
+  });
+  afterAll(async () => {
+    // Close database connection
+    await mongoose.connection.close();
+  });
 });
