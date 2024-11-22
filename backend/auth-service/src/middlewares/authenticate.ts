@@ -12,15 +12,13 @@ const authenticate: RequestHandler = async (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const secretKey = Buffer.from(process.env.JWT_SECRET!, 'base64');
-    const decodedToken = await jwtDecrypt(token, secretKey);
-    req.patient = decodedToken.payload.patient as { id: string };
-    
+    const secretKey = Buffer.from(process.env.JWT_SECRET!, "base64");
+    const { payload } = await jwtDecrypt(token, secretKey);
+    req.user = payload as { id: string; type: "patient" | "dentist" };
     next();
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error("Token verification failed:", error);
     res.status(401).json({ message: "Invalid or expired token" });
-    return;
   }
 };
 
