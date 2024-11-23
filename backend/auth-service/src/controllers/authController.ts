@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { base64url, EncryptJWT } from "jose";
 import User from "../models/User";
 import { IUser } from "../models/User";
+import { MQTTHandler } from "../../../mqtt/MqttHandler";
 
 declare global {
   namespace Express {
@@ -14,124 +15,105 @@ declare global {
   }
 }
 
+const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
+mqttHandler.connect(); // Ensure RabbitMQ connection is established
+
+// Register User
 export const register: RequestHandler = async (req, res) => {
   const { name, email, password, role } = req.body;
 
   try {
-    // Check if user exists
     let user: IUser | null;
     user = await User.findOne({ email });
     if (user) {
-      res.status(400).json({ message: "User already exists" });
+      const errorMessage = { message: "User already exists" };
+      res.status(400).json(errorMessage);
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(errorMessage)); // Convert object to string
       return;
     }
-    // Create new user
-    user = new User({
-      name,
-      email,
-      password,
-      role,
-    });
-    // Hash password
+
+    user = new User({ name, email, password, role });
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
-
-    // Save user
     await user.save();
 
-    // Return token
-    const payload = {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
-
-    // generate JWT token
+    const payload = { user: { id: user.id, name: user.name, email: user.email, role: user.role } };
     const secretKey = base64url.decode(process.env.JWT_SECRET!);
-    console.log("Decoded JWT_SECRET length:", secretKey.length); // Should print: 32
+
     if (secretKey.length !== 32) {
-        throw new Error('Invalid JWT_SECRET length. It must be a 32-byte base64-encoded string for A256GCM.');
+      throw new Error('Invalid JWT_SECRET length. It must be 32 bytes for A256GCM.');
     }
 
     const token = await new EncryptJWT(payload)
-    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-    .setExpirationTime('1h')
-    .encrypt(secretKey);
+      .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+      .setExpirationTime("1h")
+      .encrypt(secretKey);
 
     res.json({ token });
-    return;
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token })); // Convert object to string
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
-    return;
+    const errorMessage = { message: "Server error" };
+    res.status(500).json(errorMessage);
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(errorMessage)); // Convert object to string
   }
 };
 
-// Login user
+// Login User
 export const login: RequestHandler = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Check if user exists
     let user: IUser | null;
     user = await User.findOne({ email });
     if (!user) {
-      res.status(400).json({ message: "Invalid credentials" });
+      const errorMessage = { message: "Invalid credentials" };
+      res.status(400).json(errorMessage);
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(errorMessage)); // Convert object to string
       return;
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      res.status(400).json({ message: "Invalid credentials" });
+      const errorMessage = { message: "Invalid credentials" };
+      res.status(400).json(errorMessage);
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(errorMessage)); // Convert object to string
       return;
     }
 
-    // Return token
-    const payload = {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
-
-    // generate JWT token
+    const payload = { user: { id: user.id, name: user.name, email: user.email, role: user.role } };
     const secretKey = base64url.decode(process.env.JWT_SECRET!);
-    console.log("Decoded JWT_SECRET length:", secretKey.length); // Should print: 32
+
     if (secretKey.length !== 32) {
-        throw new Error('Invalid JWT_SECRET length. It must be a 32-byte base64-encoded string for A256GCM.');
+      throw new Error('Invalid JWT_SECRET length. It must be 32 bytes for A256GCM.');
     }
 
     const token = await new EncryptJWT(payload)
-    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-    .setExpirationTime('1h')
-    .encrypt(secretKey);
+      .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+      .setExpirationTime("1h")
+      .encrypt(secretKey);
 
     res.json({ token });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token })); // Convert object to string
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    const errorMessage = { message: "Server error" };
+    res.status(500).json(errorMessage);
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(errorMessage)); // Convert object to string
   }
 };
 
-// Get user
+// Get Current User
 export const getCurrentUser: RequestHandler = async (req, res) => {
   try {
     if (!req.user) {
       res.status(400).json({ message: "User not authenticated" });
       return;
     }
-    const user = await User.findById(req.user.id).select(["-password", "-id"]); // Exclude password
+    const user = await User.findById(req.user.id).select(["-password", "-id"]); // Exclude sensitive fields
     res.json(user);
-    return;
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
-    return;
   }
 };
