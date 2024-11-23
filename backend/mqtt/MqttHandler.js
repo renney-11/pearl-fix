@@ -1,77 +1,56 @@
-const mqtt = require('mqtt');
-
-class MqttHandler {
-    constructor(host, username, password, clientId) {
-        this.mqttClient = null;
-        this.host = host; // HiveMQ broker URL
-        this.clientId = clientId; 
-        this.username = username;
-        this.password = password;
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MQTTHandler = void 0;
+const amqplib_1 = __importDefault(require("amqplib"));
+class MQTTHandler {
+    constructor(amqpUrl) {
+        this.amqpUrl = amqpUrl;
     }
-
     connect() {
-        this.mqttClient = mqtt.connect(this.host, {
-            username: this.username,
-            password: this.password,
-            clientId: this.clientId,
-            reconnectPeriod: 1000, // Reconnect every 1 second if the connection is lost
-        });
-
-        // MQTT error callback
-        this.mqttClient.on('error', (err) => {
-            console.error(`Error on client ${this.clientId}:`, err.message);
-            this.mqttClient.end();
-        });
-
-        // Connection callback
-        this.mqttClient.on('connect', () => {
-            console.log(`MQTT client ${this.clientId} connected to ${this.host}`);
-        });
-
-        // Disconnect callback
-        this.mqttClient.on('close', () => {
-            console.log(`MQTT client ${this.clientId} disconnected`);
+        return __awaiter(this, void 0, void 0, function* () {
+            this.connection = yield amqplib_1.default.connect(this.amqpUrl);
+            this.channel = yield this.connection.createChannel();
+            console.log('Connected to RabbitMQ');
         });
     }
-
-    /**
-     * Publishes a message to a topic
-     *
-     * @param topic - MQTT topic
-     * @param message - Message payload
-     */
-    sendMessage(topic, message) {
-        if (!this.mqttClient || !this.mqttClient.connected) {
-            console.error('Cannot publish message: MQTT client is not connected');
-            return;
-        }
-        this.mqttClient.publish(topic, message, (err) => {
-            if (err) {
-                console.error(`Failed to publish to topic ${topic}:`, err.message);
-            } else {
-                console.log(`Message published to topic ${topic}:`, message);
-            }
+    publish(queue, message) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.channel.assertQueue(queue, { durable: true });
+            this.channel.sendToQueue(queue, Buffer.from(message));
+            console.log(`Published message to "${queue}": ${message}`);
         });
     }
-
-    /**
-     * Subscribes to a topic
-     *
-     * @param topic - MQTT topic
-     */
-    subscribeTopic(topic) {
-        if (!this.mqttClient || !this.mqttClient.connected) {
-            console.error('Cannot subscribe: MQTT client is not connected');
-            return;
-        }
-        this.mqttClient.subscribe(topic, (err) => {
-            if (err) {
-                console.error(`Failed to subscribe to topic ${topic}:`, err.message);
-            } else {
-                console.log(`Subscribed to topic ${topic}`);
-            }
+    subscribe(queue, callback) {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.channel.assertQueue(queue, { durable: true });
+            console.log(`Subscribed to queue "${queue}"`);
+            this.channel.consume(queue, (msg) => {
+                if (msg) {
+                    const content = msg.content.toString();
+                    callback(content);
+                    this.channel.ack(msg);
+                }
+            });
+        });
+    }
+    close() {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield this.channel.close();
+            yield this.connection.close();
+            console.log('Closed RabbitMQ connection');
         });
     }
 }
-
-module.exports = MqttHandler;
+exports.MQTTHandler = MQTTHandler;
