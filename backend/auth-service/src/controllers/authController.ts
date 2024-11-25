@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import { base64url, EncryptJWT } from "jose";
+import { MQTTHandler } from "../../../mqtt/MqttHandler";
 import Patient from "../models/Patient";
 import Dentist from "../models/Dentist";
 import { IPatient } from "../models/Patient";
@@ -17,42 +18,63 @@ declare global {
   }
 }
 
-// Register a new patient
-export const register: RequestHandler = async (req, res) => {
+const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
+
+(async () => {
+  try {
+    await mqttHandler.connect();
+  } catch (error) {
+    console.error("Failed to connect to RabbitMQ:", error);
+  }
+})();
+
+const generateToken = async (payload: { id: string; type: "patient" | "dentist" }): Promise<string> => {
+  const secretKey = base64url.decode(process.env.JWT_SECRET!);
+  return await new EncryptJWT(payload)
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .setExpirationTime("1h")
+    .encrypt(secretKey);
+};
+
+export const register: RequestHandler = async (req, res): Promise<void> => {
   const { name, email, password } = req.body;
 
   try {
-    let patient = await Patient.findOne({ email });
-    if (patient) {
+    const existingPatient = await Patient.findOne({ email });
+    if (existingPatient) {
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Patient already exists" }));
       res.status(400).json({ message: "Patient already exists" });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    patient = new Patient({ name, email, password: hashedPassword });
+    const patient = new Patient({ name, email, password: hashedPassword });
     await patient.save();
 
     const token = await generateToken({ id: patient.id, type: "patient" });
-    res.json({ token });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token }));
+
+    res.status(200).json({ token });
   } catch (error) {
-    console.error(error);
+    console.error("Error in patient registration:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Register a new dentist
-export const registerDentist: RequestHandler = async (req, res) => {
+export const registerDentist: RequestHandler = async (req, res): Promise<void> => {
+  console.log('Received request to register dentist'); // Debug log
   const { name, email, password, fikaBreak, lunchBreak, workdays } = req.body;
 
   try {
-    let dentist = await Dentist.findOne({ email });
-    if (dentist) {
+    const existingDentist = await Dentist.findOne({ email });
+    if (existingDentist) {
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Dentist already exists" }));
       res.status(400).json({ message: "Dentist already exists" });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    dentist = new Dentist({
+    const dentist = new Dentist({
       name,
       email,
       password: hashedPassword,
@@ -63,23 +85,21 @@ export const registerDentist: RequestHandler = async (req, res) => {
     await dentist.save();
 
     const token = await generateToken({ id: dentist.id, type: "dentist" });
-    res.json({ token });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token }));
+
+    res.status(200).json({ token });
   } catch (error) {
-    console.error(error);
+    console.error("Error in dentist registration:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Login for both patients and dentists
-export const login: RequestHandler = async (req, res) => {
+export const login: RequestHandler = async (req, res): Promise<void> => {
   const { email, password } = req.body;
 
   try {
-    let user: IPatient | IDentist | null;
-    let userType: "patient" | "dentist";
-
-    user = await Patient.findOne({ email });
-    userType = "patient";
+    let user: IPatient | IDentist | null = await Patient.findOne({ email });
+    let userType: "patient" | "dentist" = "patient";
 
     if (!user) {
       user = await Dentist.findOne({ email });
@@ -87,20 +107,22 @@ export const login: RequestHandler = async (req, res) => {
     }
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Invalid credentials" }));
       res.status(400).json({ message: "Invalid credentials" });
       return;
     }
 
     const token = await generateToken({ id: user.id, type: userType });
-    res.json({ token });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token }));
+
+    res.status(200).json({ token });
   } catch (error) {
-    console.error(error);
+    console.error("Error in login:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Get current user details
-export const getCurrentUser: RequestHandler = async (req, res) => {
+export const getCurrentUser: RequestHandler = async (req, res): Promise<void> => {
   try {
     if (!req.user) {
       res.status(401).json({ message: "Not authenticated" });
@@ -117,18 +139,9 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
       return;
     }
 
-    res.json(user);
+    res.status(200).json(user);
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching user details:", error);
     res.status(500).json({ message: "Server error" });
   }
-};
-
-// Helper function to generate JWT token
-const generateToken = async (payload: { id: string; type: "patient" | "dentist" }) => {
-  const secretKey = base64url.decode(process.env.JWT_SECRET!);
-  return await new EncryptJWT(payload)
-    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-    .setExpirationTime("1h")
-    .encrypt(secretKey);
 };
