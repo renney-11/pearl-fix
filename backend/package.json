@@ -8,13 +8,13 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "devDependencies": {
     "@types/amqplib": "^0.10.5",
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "amqplib": "^0.10.4",
+    "amqplib": "^0.10.5",
     "dotenv": "^16.4.5"
-  }
+  },
+  "description": ""
 }
