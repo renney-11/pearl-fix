@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import { base64url, EncryptJWT } from "jose";
+import { MQTTHandler } from "../../../mqtt/MqttHandler";
 import Patient from "../models/Patient";
 import Dentist from "../models/Dentist";
 import { IPatient } from "../models/Patient";
@@ -17,6 +18,9 @@ declare global {
   }
 }
 
+const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
+mqttHandler.connect(); // Ensure RabbitMQ connection is established
+
 // Register a new patient
 export const register: RequestHandler = async (req, res) => {
   const { name, email, password } = req.body;
@@ -25,18 +29,20 @@ export const register: RequestHandler = async (req, res) => {
     let patient = await Patient.findOne({ email });
     if (patient) {
       res.status(400).json({ message: "Patient already exists" });
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Patient already exists" })); // Convert object to string
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     patient = new Patient({ name, email, password: hashedPassword });
     await patient.save();
-
     const token = await generateToken({ id: patient.id, type: "patient" });
     res.json({ token });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token })); // Convert object to string
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(error)); // Convert object to string
   }
 };
 
@@ -48,6 +54,7 @@ export const registerDentist: RequestHandler = async (req, res) => {
     let dentist = await Dentist.findOne({ email });
     if (dentist) {
       res.status(400).json({ message: "Dentist already exists" });
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Dentist already exists" })); // Convert object to string
       return;
     }
 
@@ -63,10 +70,12 @@ export const registerDentist: RequestHandler = async (req, res) => {
     await dentist.save();
 
     const token = await generateToken({ id: dentist.id, type: "dentist" });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token })); // Convert object to string
     res.json({ token });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(error)); // Convert object to string
   }
 };
 
@@ -88,14 +97,18 @@ export const login: RequestHandler = async (req, res) => {
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       res.status(400).json({ message: "Invalid credentials" });
+      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Invalid credentials" })); // Convert object to string
       return;
     }
 
     const token = await generateToken({ id: user.id, type: userType });
     res.json({ token });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token })); // Convert object to string
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    const errorMessage = { message: "Server error" };
+    res.status(500).json(errorMessage);
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify(errorMessage)); // Convert object to string
   }
 };
 
@@ -106,7 +119,6 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
       res.status(401).json({ message: "Not authenticated" });
       return;
     }
-
     const user =
       req.user.type === "patient"
         ? await Patient.findById(req.user.id).select("-password")
@@ -116,7 +128,6 @@ export const getCurrentUser: RequestHandler = async (req, res) => {
       res.status(404).json({ message: "User not found" });
       return;
     }
-
     res.json(user);
   } catch (error) {
     console.error(error);
