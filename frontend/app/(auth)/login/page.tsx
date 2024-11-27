@@ -1,7 +1,9 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -29,9 +31,16 @@ export default function Login() {
 
       if (response.ok) {
         const data = await response.json();
-        alert("Login successful!");
-        console.log("Token:", data.token);
-        // Optionally, store the token in local storage or cookies for authentication
+        const token = data.token;
+
+        if (token) {
+          localStorage.setItem("authToken", token);
+
+          alert("Login successful!");
+          router.push("/"); 
+        } else {
+          alert("Login successful, but no token received.");
+        }
       } else {
         const error = await response.json();
         alert(`Error: ${error.message}`);

@@ -44,12 +44,10 @@ export default function SignUp() {
         const token = data.token;
 
         if (token) {
-          // Save the token in localStorage
           localStorage.setItem("authToken", token);
 
-          // Redirect the user or update the UI
           alert("Signup successful!");
-          router.push("/"); // Redirect to a protected route
+          router.push("/"); 
         } else {
           alert("Signup successful, but no token received.");
         }
