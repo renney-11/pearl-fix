@@ -25,4 +25,9 @@ const dbConnect = async () => {
   }
 };
 
+const dbClose = async () => {
+  await mongoose.connection.close();
+};
+
+export { dbConnect, dbClose };
 export default dbConnect;
