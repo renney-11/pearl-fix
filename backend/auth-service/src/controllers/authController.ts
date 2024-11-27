@@ -19,47 +19,93 @@ declare global {
   }
 }
 
+
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
 (async () => {
   try {
     await mqttHandler.connect();
+
+    // Subscribe to the patient registration queue
+    await mqttHandler.subscribe("tooth-beacon/authentication/register", async (msg) => {
+      try {
+        console.log("Message received:", msg);
+
+        // Parse the message
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(msg);
+        } catch (err) {
+          console.error("Failed to parse message:", err);
+          await mqttHandler.publish(
+            "tooth-beacon/authentication/authenticate",
+            JSON.stringify({ message: "Invalid message format" })
+          );
+          return;
+        }
+
+        // Extract fields
+        const { name, email, password } = parsedMessage;
+
+        // Mock req and res for validation
+        const req = { body: { name, email, password } } as any;
+        const res = {
+          status: (code: number) => ({
+            json: (data: any) => {
+              throw new Error(JSON.stringify({ code, ...data }));
+            },
+          }),
+        } as any;
+
+        // Validate fields
+        if (!validateFields(req, res, ["name", "email", "password"])) return;
+        if (!validateStringLength(req, res, "name", 32)) return;
+        if (!validateStringLength(req, res, "email", 32)) return;
+        if (!validateStringLength(req, res, "password", 32)) return;
+        if (!validateEmailFormat(req, res, "email")) return;
+
+        // Check if patient already exists
+        const existingPatient = await Patient.findOne({ email });
+        if (existingPatient) {
+          await mqttHandler.publish(
+            "tooth-beacon/authentication/authenticate",
+            JSON.stringify({ message: "Patient already exists" })
+          );
+          console.log("Patient already exists:", email);
+          return;
+        }
+
+        // Hash password and create the patient
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const patient = new Patient({ name, email, password: hashedPassword });
+        await patient.save();
+
+        // Generate and publish token
+        const token = await generateToken({ id: patient.id, type: "patient" });
+        await mqttHandler.publish(
+          "tooth-beacon/authentication/authenticate",
+          JSON.stringify({ token })
+        );
+        console.log("Patient registered and token published:", { name, email });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("Error processing message:", errorMessage);
+
+        await mqttHandler.publish(
+          "tooth-beacon/authentication/authenticate",
+          JSON.stringify({ message: "Error registering patient", error: errorMessage })
+        );
+      }
+    });
+
+    console.log("Subscription for patient registration initialized.");
   } catch (error) {
-    console.error("Failed to connect to RabbitMQ:", error);
+    console.error("Failed to connect or initialize RabbitMQ subscription:", error);
   }
 })();
 
 export const register: RequestHandler = async (req, res): Promise<void> => {
-  const { name, email, password } = req.body;
-
-  // Validate input fields
-  if (!validateFields(req, res, ["name", "email", "password"])) return;
-  if (!validateStringLength(req, res, "name", 32)) return;
-  if (!validateEmailFormat(req, res, "email")) return;
-  if (!validateStringLength(req, res, "email", 32)) return;
-  if (!validateStringLength(req, res, "password", 32)) return;
-
-  try {
-    const existingPatient = await Patient.findOne({ email });
-    if (existingPatient) {
-      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Patient already exists" }));
-      res.status(400).json({ message: "Patient already exists" });
-      return;
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const patient = new Patient({ name, email, password: hashedPassword });
-    await patient.save();
-
-    const token = await generateToken({ id: patient.id, type: "patient" });
-    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token }));
-
-    res.status(200).json({ token });
-  } catch (error) {
-    console.error("Error in patient registration:", error);
-    res.status(500).json({ message: "Server error" });
-    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Server error" }));
-  }
+  res.status(405).json({ message: "Use the message queue to register patients" });
 };
 
 export const registerDentist: RequestHandler = async (req, res): Promise<void> => {

@@ -7,7 +7,6 @@ export default function SignUp() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "patient",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,7 +32,6 @@ export default function SignUp() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          role: formData.role,
         }),
       });
 

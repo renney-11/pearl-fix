@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, email, password } = req.body;
+  const { email, password } = req.body;
 
   try {
     // Connect to RabbitMQ
@@ -16,12 +16,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const channel = await connection.createChannel();
 
     // Ensure the queue exists
-    const queue = "tooth-beacon/authentication/register";
+    const queue = "tooth-beacon/authentication/login";
     await channel.assertQueue(queue, { durable: true });
 
     // Prepare the payload
     const payload = {
-      name,
       email,
       password,
     };
@@ -39,9 +38,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       connection.close();
     }, 500);
 
-    res.status(200).json({ message: "Signup data sent successfully!" });
+    res.status(200).json({ message: "Login data sent successfully!" });
   } catch (error) {
     console.error("Error connecting to RabbitMQ:", error);
-    res.status(500).json({ error: "Failed to send signup data." });
+    res.status(500).json({ error: "Failed to send login data." });
   }
 }
