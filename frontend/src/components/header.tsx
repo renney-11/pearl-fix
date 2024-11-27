@@ -1,6 +1,6 @@
-export default function Header() { 
+export default function Header() {
   return (
-    <nav className="bg-[rgba(108,123,171,40)] py-6 px-8">  {/* Updated to rgba(133, 134, 66, 1) */}
+    <nav className="bg-[rgba(229,243,253,255)] py-6 px-8 shadow-md">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center">
           <img
@@ -12,14 +12,14 @@ export default function Header() {
         <div className="flex items-center space-x-6">
           <a
             href="/login"
-            className="text-white hover:text-[#1C1C28] relative group"
+            className="text-[#1E3582] hover:text-[#1C1C28] relative group"
           >
             log in
-            <span className="block h-0.5 w-0 bg-white group-hover:w-full transition-all duration-300"></span>
+            <span className="block h-0.5 w-0 bg-[#A3B4D3] group-hover:w-full transition-all duration-300"></span>
           </a>
           <a
             href="/register"
-            className="px-4 py-2 bg-white text-[#1C1C28] rounded-full font-semibold hover:bg-[#D9E3F0]"
+            className="px-4 py-2 bg-[#1E3582] text-[rgba(229,243,253,255)] rounded-full font-semibold"
           >
             sign up
           </a>
