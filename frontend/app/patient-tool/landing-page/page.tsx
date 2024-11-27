@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMapLocationDot, faTeeth, faClock } from "@fortawesome/free-solid-svg-icons";
+import Footer from "@/src/components/footer";
+import Header from "@/src/components/header";
+import Background from "@/src/components/background";
 
 interface Service {
   id: number;
@@ -21,22 +24,26 @@ const PatientLandingPage: React.FC = () => {
   const [hovered, setHovered] = useState<number | null>(null);
 
   return (
-    <div>
-      <h2>select a service:</h2>
-      <div>
-        {services.map((service) => (
-          <a
-            key={service.id}
-            href={service.link}
-            onMouseEnter={() => setHovered(service.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <FontAwesomeIcon icon={service.icon} />
-            <p>{service.text}</p>
-          </a>
-        ))}
-      </div>
-    </div>
+    <Background>
+      <Header />
+      <main>
+        <h2>select a service:</h2>
+        <div>
+          {services.map((service) => (
+            <a
+              key={service.id}
+              href={service.link}
+              onMouseEnter={() => setHovered(service.id)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <FontAwesomeIcon icon={service.icon} />
+              <p>{service.text}</p>
+            </a>
+          ))}
+        </div>
+      </main>
+      <Footer />
+    </Background>
   );
 };
 
