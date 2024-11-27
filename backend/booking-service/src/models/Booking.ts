@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IBooking extends Document {
   dentistId: string;
   patientId?: string;
-  status: 'available' | 'booked' | 'canceled';
+  status: 'available' | 'booked';
   timeSlot: {
     start: Date;
     end: Date;
@@ -20,7 +20,7 @@ const BookingSchema: Schema = new Schema(
     patientId: { type: String },
     status: {
       type: String,
-      enum: ['available', 'booked', 'canceled'],
+      enum: ['available', 'booked'],
       default: 'available',
     },
     timeSlot: {
@@ -31,7 +31,7 @@ const BookingSchema: Schema = new Schema(
     notes: { type: String },
   },
   {
-    timestamps: true,
+    timestamps: true, 
   }
 );
 

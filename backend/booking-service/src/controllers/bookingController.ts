@@ -82,7 +82,7 @@ export const updateBookingStatus: RequestHandler = async (req, res): Promise<voi
   const { status } = req.body;
 
   try {
-    const validStatuses = ["available", "booked", "canceled"];
+    const validStatuses = ["available", "booked"];
     if (!validStatuses.includes(status)) {
       res.status(400).json({ message: "Invalid status value" });
       return;
