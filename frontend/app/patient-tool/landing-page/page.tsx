@@ -3,10 +3,8 @@
 import React, { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMapLocationDot, faTeeth, faClock } from "@fortawesome/free-solid-svg-icons";
-import Footer from "@/src/components/footer";
 import Header from "@/src/components/header";
 import Background from "@/src/components/background";
-
 
 interface Service {
   id: number;
@@ -28,13 +26,15 @@ const PatientLandingPage: React.FC = () => {
     <Background>
       <Header />
       <main className="text-center p-8 min-h-screen flex flex-col items-center justify-start mt-12">
-        <h2 className="text-3xl font-bold text-[#1E3582] mb-20">select a service:</h2>
+        <h2 className="text-3xl mb-20" style={{ color: "#E0DCFB" }}>
+          select a service:
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-screen-xl px-8">
           {services.map((service) => (
             <a
               key={service.id}
               href={service.link}
-              className={`bg-[#1E3582] text-white rounded-2xl p-10 flex flex-col items-center justify-center 
+              className={`bg-[rgba(30,53,130,255)] text-white rounded-2xl p-10 flex flex-col items-center justify-center 
                 shadow-lg hover:shadow-xl transition-transform transform ${
                   hovered === service.id ? "translate-y-[-6px]" : "translate-y-0"
                 }`}
@@ -48,7 +48,6 @@ const PatientLandingPage: React.FC = () => {
           ))}
         </div>
       </main>
-      <Footer />
     </Background>
   );
 };

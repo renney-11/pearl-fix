@@ -1,4 +1,3 @@
-import Footer from '@/src/components/footer';
 import Header from '@/src/components/header';
 import SubBackground from '@/src/components/subbackground';
 import Background from '@/src/components/background';
@@ -18,7 +17,6 @@ export default function App() {
               <Map />
             </div>
           </SubBackground>
-          <Footer />
         </Background>
       </main>
     </div>
