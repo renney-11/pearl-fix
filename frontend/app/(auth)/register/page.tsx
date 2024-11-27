@@ -1,12 +1,10 @@
 "use client";
 import React, { useState } from "react";
 
-export default function SignUp() {
+export default function Login() {
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     password: "",
-    confirmPassword: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -17,33 +15,27 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match!");
-      return;
-    }
-
     try {
-      const response = await fetch("/api/register", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: formData.name,
           email: formData.email,
           password: formData.password,
         }),
       });
 
       if (response.ok) {
-        alert("Signup data sent successfully!");
+        alert("Login data sent successfully!");
       } else {
         const error = await response.json();
         alert(`Error: ${error.error}`);
       }
     } catch (err) {
       console.error("Error submitting form:", err);
-      alert("Failed to send signup data.");
+      alert("Failed to send login data.");
     }
   };
 
@@ -61,14 +53,6 @@ export default function SignUp() {
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <input
-            type="text"
-            name="name"
-            placeholder="full name"
-            className="w-full px-4 py-2 rounded bg-transparent-input text-white placeholder-blue-300 focus:outline-none"
-            value={formData.name}
-            onChange={handleChange}
-          />
-          <input
             type="email"
             name="email"
             placeholder="email"
@@ -84,19 +68,11 @@ export default function SignUp() {
             value={formData.password}
             onChange={handleChange}
           />
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="confirm password"
-            className="w-full px-4 py-2 rounded bg-transparent-input text-white placeholder-blue-300 focus:outline-none"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-          />
           <button
             type="submit"
             className="py-2 px-8 mt-4 text-blue-900 bg-white rounded-full font-semibold hover:bg-gray-200 mx-auto block"
           >
-            sign up
+            login
           </button>
         </form>
         <p className="mt-4 text-center text-white">
