@@ -6,7 +6,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, email, password } = req.body;
+  const { email, password } = req.body;
 
   try {
     // Connect to RabbitMQ
@@ -15,17 +15,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     const channel = await connection.createChannel();
 
-    // Publish signup data
-    const registerQueue = "tooth-beacon/authentication/register";
-    await channel.assertQueue(registerQueue, { durable: true });
+    // Ensure the queue exists
+    const loginQueue = "tooth-beacon/authentication/login";
+    await channel.assertQueue(loginQueue, { durable: true });
 
-    const payload = { name, email, password };
-    channel.sendToQueue(registerQueue, Buffer.from(JSON.stringify(payload)), {
+    const payload = {
+      email,
+      password,
+    };
+    channel.sendToQueue(loginQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
     console.log("Message published:", payload);
 
-    // Wait for the token
     const authenticateQueue = "tooth-beacon/authentication/authenticate";
     await channel.assertQueue(authenticateQueue, { durable: true });
 

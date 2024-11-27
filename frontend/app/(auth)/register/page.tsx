@@ -1,7 +1,9 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SignUp() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -38,7 +40,17 @@ export default function SignUp() {
       });
 
       if (response.ok) {
-        alert("Signup data sent successfully!");
+        const data = await response.json();
+        const token = data.token;
+
+        if (token) {
+          localStorage.setItem("authToken", token);
+
+          alert("Signup successful!");
+          router.push("/"); 
+        } else {
+          alert("Signup successful, but no token received.");
+        }
       } else {
         const error = await response.json();
         alert(`Error: ${error.error}`);
