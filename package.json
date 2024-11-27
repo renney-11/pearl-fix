@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@next/font": "^14.2.15",
     "leaflet": "^1.9.4",
     "mqtt": "^5.10.2",
     "react-leaflet": "^4.2.1"

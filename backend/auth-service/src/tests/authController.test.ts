@@ -43,9 +43,11 @@ describe('AuthController', () => {
       .post('/api/v1/auth/register')
       .send({
         name: 'Jane Doe',
-        email: `janedoe-${Date.now()}@example.com`,
+        email: `janedoe-@example.com`,
         password: 'password123',
       });
+      console.log('Response:', response.body); // Debugging line 
+      console.log('Response Status:', response.status); // Debugging line
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('token');

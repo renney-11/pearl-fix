@@ -1,11 +1,12 @@
 import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
-import { base64url, EncryptJWT } from "jose";
 import { MQTTHandler } from "../../../mqtt/MqttHandler";
 import Patient from "../models/Patient";
 import Dentist from "../models/Dentist";
 import { IPatient } from "../models/Patient";
 import { IDentist } from "../models/Dentist";
+import { validateFields, validateStringLength, validateEmailFormat, validateDentistOptionalFields } from "../middlewares/validators";
+import { generateToken } from "../utils/tokenUtils"; // Import generateToken
 
 declare global {
   namespace Express {
@@ -28,16 +29,15 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
   }
 })();
 
-const generateToken = async (payload: { id: string; type: "patient" | "dentist" }): Promise<string> => {
-  const secretKey = base64url.decode(process.env.JWT_SECRET!);
-  return await new EncryptJWT(payload)
-    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
-    .setExpirationTime("1h")
-    .encrypt(secretKey);
-};
-
 export const register: RequestHandler = async (req, res): Promise<void> => {
   const { name, email, password } = req.body;
+
+  // Validate input fields
+  if (!validateFields(req, res, ["name", "email", "password"])) return;
+  if (!validateStringLength(req, res, "name", 32)) return;
+  if (!validateEmailFormat(req, res, "email")) return;
+  if (!validateStringLength(req, res, "email", 32)) return;
+  if (!validateStringLength(req, res, "password", 32)) return;
 
   try {
     const existingPatient = await Patient.findOne({ email });
@@ -58,6 +58,7 @@ export const register: RequestHandler = async (req, res): Promise<void> => {
   } catch (error) {
     console.error("Error in patient registration:", error);
     res.status(500).json({ message: "Server error" });
+    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Server error" }));
   }
 };
 
