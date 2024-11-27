@@ -1,15 +1,19 @@
 export default function Header() {
   return (
     <nav className="bg-[rgba(229,243,253,255)] py-6 px-8 shadow-md">
-      <div className="container mx-auto flex items-center justify-between">
-        <div className="flex items-center">
+      <div className="container mx-auto flex items-center justify-between flex-col sm:flex-row">
+        {/* Logo Section */}
+        <div className="flex items-center mb-4 sm:mb-0">
           <img
             src="/assets/logo_horizontal.png"
             alt="Logo"
-            className="h-20 w-auto mr-10"
+            className="h-20 w-auto"
           />
         </div>
-        <div className="flex items-center space-x-6">
+
+        {/* Login and Sign Up Buttons Section */}
+        <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+          {/* Login Button */}
           <a
             href="/login"
             className="text-[#1E3582] hover:text-[#1C1C28] relative group"
@@ -17,6 +21,8 @@ export default function Header() {
             log in
             <span className="block h-0.5 w-0 bg-[#A3B4D3] group-hover:w-full transition-all duration-300"></span>
           </a>
+
+          {/* Sign Up Button */}
           <a
             href="/register"
             className="px-4 py-2 bg-[#1E3582] text-[rgba(229,243,253,255)] rounded-full font-semibold"
