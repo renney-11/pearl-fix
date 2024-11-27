@@ -1,10 +1,15 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function Login() {
+export default function SignUp() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
+    confirmPassword: "",
+    role: "patient",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -15,27 +20,46 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (formData.password !== formData.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
     try {
-      const response = await fetch("/api/login", {
+      const response = await fetch("/api/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          name: formData.name,
           email: formData.email,
           password: formData.password,
+          role: formData.role,
         }),
       });
 
       if (response.ok) {
-        alert("Login data sent successfully!");
+        const data = await response.json();
+        const token = data.token;
+
+        if (token) {
+          // Save the token in localStorage
+          localStorage.setItem("authToken", token);
+
+          // Redirect the user or update the UI
+          alert("Signup successful!");
+          router.push("/"); // Redirect to a protected route
+        } else {
+          alert("Signup successful, but no token received.");
+        }
       } else {
         const error = await response.json();
         alert(`Error: ${error.error}`);
       }
     } catch (err) {
       console.error("Error submitting form:", err);
-      alert("Failed to send login data.");
+      alert("Failed to send signup data.");
     }
   };
 
@@ -53,6 +77,14 @@ export default function Login() {
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <input
+            type="text"
+            name="name"
+            placeholder="full name"
+            className="w-full px-4 py-2 rounded bg-transparent-input text-white placeholder-blue-300 focus:outline-none"
+            value={formData.name}
+            onChange={handleChange}
+          />
+          <input
             type="email"
             name="email"
             placeholder="email"
@@ -68,11 +100,19 @@ export default function Login() {
             value={formData.password}
             onChange={handleChange}
           />
+          <input
+            type="password"
+            name="confirmPassword"
+            placeholder="confirm password"
+            className="w-full px-4 py-2 rounded bg-transparent-input text-white placeholder-blue-300 focus:outline-none"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+          />
           <button
             type="submit"
             className="py-2 px-8 mt-4 text-blue-900 bg-white rounded-full font-semibold hover:bg-gray-200 mx-auto block"
           >
-            login
+            sign up
           </button>
         </form>
         <p className="mt-4 text-center text-white">
