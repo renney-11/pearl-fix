@@ -47,7 +47,7 @@ export default function SignUp() {
           localStorage.setItem("authToken", token);
 
           alert("Signup successful!");
-          router.push("/"); 
+          router.push("/patient-tool/landing-page"); 
         } else {
           alert("Signup successful, but no token received.");
         }
