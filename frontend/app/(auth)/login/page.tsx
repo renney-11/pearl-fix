@@ -52,8 +52,8 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-main-blue">
-      <div className="w-full max-w-lg p-8 bg-transparent-blue rounded-lg shadow-lg">
+    <div className="flex items-center justify-center min-h-screen bg-[rgba(3,0,45)]">
+      <div className="w-full max-w-2xl p-8 bg-[rgba(180,195,220,255)] rounded-lg shadow-lg">
         <div className="flex flex-col items-center mb-8">
           <a href="/">
             <img
@@ -64,33 +64,37 @@ export default function Login() {
           </a>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <input
-            type="email"
-            name="email"
-            placeholder="email"
-            className="w-full px-4 py-2 rounded bg-transparent-input text-white placeholder-blue-300 focus:outline-none"
-            value={formData.email}
-            onChange={handleChange}
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="password"
-            className="w-full px-4 py-2 rounded bg-transparent-input text-white placeholder-blue-300 focus:outline-none"
-            value={formData.password}
-            onChange={handleChange}
-          />
+          <div className="flex justify-between items-center gap-4">
+            <input
+              type="email"
+              name="email"
+              placeholder="email"
+              className="w-full px-4 py-2 rounded border border-main-blue bg-transparent placeholder-main-blue text-main-blue focus:outline-none focus:ring-2 focus:ring-main-blue"
+              value={formData.email}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="flex justify-between items-center gap-4">
+            <input
+              type="password"
+              name="password"
+              placeholder="password"
+              className="w-full px-4 py-2 rounded border border-main-blue bg-transparent placeholder-main-blue text-main-blue focus:outline-none focus:ring-2 focus:ring-main-blue"
+              value={formData.password}
+              onChange={handleChange}
+            />
+          </div>
 
           <button
             type="submit"
-            className="py-2 px-8 mt-4 text-blue-900 bg-white rounded-full font-semibold hover:bg-gray-200 mx-auto block"
+            className="py-2 px-8 mt-4 bg-main-blue text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block"
           >
             login
           </button>
         </form>
         <p className="mt-4 text-center text-main-blue">
           new to tooth beacon?{" "}
-          <a href="/register" className="font-semibold text-main-blue">
+          <a href="/register" className="font-semibold text-blue-900">
             create an account
           </a>
         </p>
