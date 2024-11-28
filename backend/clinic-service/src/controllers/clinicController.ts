@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import Clinic from "../models/Clinic";
 import { IClinic } from "../models/Clinic";
+import { MQTTHandler } from "../../../mqtt/MqttHandler";
 
 declare global {
   namespace Express {
@@ -12,6 +13,43 @@ declare global {
     }
   }
 }
+
+const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
+
+(async () => {
+  try {
+    await mqttHandler.connect();
+
+    // Subscribe to the getAllClinics queue
+    await mqttHandler.subscribe("tooth-beacon/clinics/get-all", async (msg) => {
+      try {
+        console.log("Message received for getAllClinics:", msg);
+
+        // Process the request
+        const clinics = await Clinic.find(); // Fetch all clinics
+
+        // Publish the response
+        await mqttHandler.publish(
+          "tooth-beacon/clinics/response",
+          JSON.stringify({ clinics })
+        );
+        console.log("Clinic data published:", clinics);
+      } catch (error) {
+        console.error("Error processing getAllClinics message:", error);
+
+        // Publish an error message
+        await mqttHandler.publish(
+          "tooth-beacon/clinics/response",
+          JSON.stringify({ message: "Error fetching clinics", error })
+        );
+      }
+    });
+
+    console.log("Subscription for getAllClinics initialized.");
+  } catch (error) {
+    console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);
+  }
+})();
 
 export const createClinic: RequestHandler = async (req, res): Promise<void> => {
   const { city, address, clinicName, password, openingHours, coordinates } = req.body;
@@ -50,17 +88,6 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
         coordinates: clinic.coordinates,
       },
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// Get all clinics
-export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
-  try {
-    const clinics = await Clinic.find();
-    res.status(200).json({ clinics });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
