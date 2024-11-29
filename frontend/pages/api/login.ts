@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const channel = await connection.createChannel();
 
     // Ensure the queue exists
-    const loginQueue = "tooth-beacon/authentication/login";
+    const loginQueue = "pearl-fix/authentication/login";
     await channel.assertQueue(loginQueue, { durable: true });
 
     const payload = {
@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     console.log("Message published:", payload);
 
-    const authenticateQueue = "tooth-beacon/authentication/authenticate";
+    const authenticateQueue = "pearl-fix/authentication/authenticate";
     await channel.assertQueue(authenticateQueue, { durable: true });
 
     console.log("Waiting for token...");
