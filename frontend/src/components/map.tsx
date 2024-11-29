@@ -1,5 +1,5 @@
 "use client";
-import { faStreetView } from "@fortawesome/free-solid-svg-icons";
+import { faStreetView, faTooth } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -9,7 +9,8 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 // Type for Clinic
 interface Clinic {
-  name: string;
+  clinicName: string;
+  address: string; // Assuming address is part of the clinic data
   coordinates: {
     latitude: number;
     longitude: number;
@@ -69,11 +70,23 @@ const Map: React.FC = () => {
   // Fallback coordinates if user's location is not available
   const gothenburgCoords: [number, number] = [57.7089, 11.9746];
 
-  // Define custom marker icon
-  const customIcon = divIcon({
+  // Define custom marker icon for user location
+  const userLocationIcon = divIcon({
     html: renderToStaticMarkup(
       <div className="text-[24px] text-[#1e3582]">
         <FontAwesomeIcon icon={faStreetView} />
+      </div>
+    ),
+    className: "custom-div-icon",
+    iconAnchor: [12, 24], // Anchor to ensure icon is properly centered
+    popupAnchor: [0, -24], // Ensure the popup is directly centered beneath the icon
+  });
+
+  // Define custom marker icon for clinics
+  const clinicIcon = divIcon({
+    html: renderToStaticMarkup(
+      <div className="text-[24px] text-[#1e3582]">
+        <FontAwesomeIcon icon={faTooth} />
       </div>
     ),
     className: "custom-div-icon",
@@ -97,7 +110,7 @@ const Map: React.FC = () => {
         {/* User's location marker */}
         {userLocation && (
           <>
-            <Marker position={userLocation} icon={customIcon}>
+            <Marker position={userLocation} icon={userLocationIcon}>
               <Popup closeButton={true}>
                 <div>
                   <span className="text-main-blue">You are here!</span>
@@ -116,12 +129,34 @@ const Map: React.FC = () => {
             clinic.coordinates.longitude,
           ];
           return (
-            <Marker key={index} position={position} icon={customIcon}>
+            <Marker key={index} position={position} icon={clinicIcon}>
               <Popup>
-                <div>
-                  <h3 className="font-bold text-lg">{clinic.name}</h3>
-                  <p>Latitude: {clinic.coordinates.latitude}</p>
-                  <p>Longitude: {clinic.coordinates.longitude}</p>
+                <div className="p-4 bg-white rounded-lg shadow-lg w-[220px]">
+                  <h3 className="text-lg font-semibold text-[#1e3582] mb-2">
+                    {clinic.clinicName}
+                  </h3>
+                  <p className="text-sm text-[#1e3582] font-medium">Address: {clinic.address}</p>
+                  {/* Buttons for navigation and booking */}
+                  <div className="flex justify-between">
+                    <button
+                      className="bg-blue-600 text-white py-1 px-3 rounded-md text-sm hover:bg-blue-700"
+                      onClick={() => {
+                        // Logic for navigation, perhaps opening maps or a route
+                        alert("Navigating to clinic...");
+                      }}
+                    >
+                      Navigate
+                    </button>
+                    <button
+                      className="bg-green-600 text-white py-1 px-3 rounded-md text-sm hover:bg-green-700"
+                      onClick={() => {
+                        // Logic for booking, maybe redirecting to a booking page
+                        alert("Booking appointment...");
+                      }}
+                    >
+                      Book Now
+                    </button>
+                  </div>
                 </div>
               </Popup>
             </Marker>
