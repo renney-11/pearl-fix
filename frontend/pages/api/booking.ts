@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     const channel = await connection.createChannel();
 
-    const queue = "tooth-beacon/booking/date-time";
+    const queue = "pearl-fix/booking/date-time";
     await channel.assertQueue(queue, { durable: true });
 
     const payload = { date, time };
