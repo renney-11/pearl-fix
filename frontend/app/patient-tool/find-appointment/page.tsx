@@ -40,7 +40,7 @@ export default function Appointment() {
 
     daysOfWeek.forEach(day => {
       const dayElement = document.createElement("div");
-      dayElement.className = "text-center font-semibold text-almost-black";
+      dayElement.className = "text-center font-semibold text-almost-black text-xs sm:text-base";
       dayElement.innerText = day;
       calendarElement.appendChild(dayElement);
     });
@@ -55,13 +55,13 @@ export default function Appointment() {
       const currentDate = new Date(year, month, day);
 
       dayElement.className =
-        "text-center py-2 border cursor-pointer hover:bg-gray-200";
+        "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
       dayElement.innerText = String(day);
 
       // Style for past dates
       if (currentDate < today) {
         dayElement.className =
-          "text-center py-2 border text-gray-200 cursor-not-allowed";
+          "text-center py-2 border text-gray-200 cursor-not-allowed text-xs sm:text-base";
       }
 
       // Style for today, ensuring it’s selectable within working hours
@@ -83,7 +83,6 @@ export default function Appointment() {
         dayElement.classList.add("bg-blue-200", "text-white");
       }
 
-      // Click handler for other selectable dates
       if (currentDate >= today && !isToday) {
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       }
@@ -91,7 +90,6 @@ export default function Appointment() {
       calendarElement.appendChild(dayElement);
     }
 
-    // Disable the "Previous" button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
       prevButton.classList.add("opacity-0");
@@ -118,8 +116,8 @@ export default function Appointment() {
 
   const getAvailableTimesForToday = (): string[] => {
     const now = new Date();
-    const isWeekend = [0, 6].includes(now.getDay()); // Check if today is a weekend
-    const allTimes = isWeekend ? getWeekendHours() : getWeekdayHours(); // Get appropriate times
+    const isWeekend = [0, 6].includes(now.getDay()); 
+    const allTimes = isWeekend ? getWeekendHours() : getWeekdayHours(); 
     const currentTime = `${now.getHours()}:${now.getMinutes() < 10 ? "0" : ""}${now.getMinutes()}`;
 
     return allTimes.filter(time => {
@@ -157,6 +155,36 @@ export default function Appointment() {
       <main>
         <Background>
           <Header />
+
+          <nav className="flex m-8" aria-label="Breadcrumb">
+            <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
+                <li className="inline-flex items-center">
+                <a href="/" className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-white">
+                    <svg className="w-3 h-3 me-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z"/>
+                    </svg>
+                    home
+                </a>
+                </li>
+                <li>
+                <div className="flex items-center">
+                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                    </svg>
+                    <a href="/patient-tool/find-care" className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-white">find care</a>
+                </div>
+                </li>
+                <li aria-current="page">
+                <div className="flex items-center">
+                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                    </svg>
+                    <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">find appointment</span>
+                </div>
+                </li>
+            </ol>
+            </nav>
+
           <SubBackground>
             <div className="flex items-center justify-center hover:max-h-screen ">
               <div className="lg:w-7/12 md:w-9/12 sm:w-10/12 mx-auto p-4">
@@ -176,7 +204,7 @@ export default function Appointment() {
                     >
                       previous
                     </button>
-                    <h2 id="currentMonth" className="text-white-blue"></h2>
+                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
                     <button
                       id="nextMonth"
                       className="text-white-blue"
@@ -201,7 +229,7 @@ export default function Appointment() {
               <div className="p-4">
                 <h3 className="text-lg font-semibold text-main-blue">selected date: {selectedDate.toDateString()}</h3>
                 <h4 className="text-md font-medium text-main-blue mt-4">select a time:</h4>
-                <ul className="grid grid-cols-3 gap-2 mt-2">
+                <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                   {availableTimes.map((time) => (
                     <li key={time}>
                       <input
