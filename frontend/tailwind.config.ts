@@ -15,6 +15,7 @@ export default {
         'main-blue': '#1E3582',
         'transparent-blue': 'rgba(108,123,171,0.4)',
         'transparent-input': 'rgba(0,0,0,0.25)',
+        'popup-blue': '#6C7BAB',
       },
       fontFamily: {
         sans: ['Figtree', 'sans-serif'], 
