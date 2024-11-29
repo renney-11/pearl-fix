@@ -24,6 +24,7 @@ export default function Appointment() {
     if (!calendarElement || !currentMonthElement || !prevButton) return;
 
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const firstDayOfMonth = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -34,7 +35,7 @@ export default function Appointment() {
     ];
     currentMonthElement.innerText = `${monthNames[month]} ${year}`;
 
-    const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+    const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; 
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     daysOfWeek.forEach(day => {
@@ -44,7 +45,6 @@ export default function Appointment() {
       calendarElement.appendChild(dayElement);
     });
 
-    // Add empty spaces for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
       const emptyDayElement = document.createElement("div");
       calendarElement.appendChild(emptyDayElement);
@@ -58,18 +58,19 @@ export default function Appointment() {
         "text-center py-2 border cursor-pointer hover:bg-gray-200";
       dayElement.innerText = String(day);
 
+      // Style for past dates
       if (currentDate < today) {
         dayElement.className =
           "text-center py-2 border text-gray-200 cursor-not-allowed";
       }
 
-      // Style for today
-      if (
-        currentDate.getFullYear() === today.getFullYear() &&
-        currentDate.getMonth() === today.getMonth() &&
-        currentDate.getDate() === today.getDate()
-      ) {
-        dayElement.classList.add("bg-violet-50", "text-blue-700");
+      // Style for today, ensuring it’s selectable within working hours
+      const isToday = currentDate.getTime() === today.getTime();
+      const todayTimesAvailable = isToday && getAvailableTimesForToday().length > 0;
+
+      if (isToday && todayTimesAvailable) {
+        dayElement.classList.add("bg-violet-50", "text-blue-700", "cursor-pointer");
+        dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       }
 
       // Style for selected date
@@ -82,8 +83,8 @@ export default function Appointment() {
         dayElement.classList.add("bg-blue-200", "text-white");
       }
 
-      // Click handler for selectable dates
-      if (currentDate >= today) {
+      // Click handler for other selectable dates
+      if (currentDate >= today && !isToday) {
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       }
 
@@ -112,7 +113,21 @@ export default function Appointment() {
   };
 
   const getWeekendHours = (): string[] => {
-    return ["9:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
+    return ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
+  };
+
+  const getAvailableTimesForToday = (): string[] => {
+    const now = new Date();
+    const isWeekend = [0, 6].includes(now.getDay()); // Check if today is a weekend
+    const allTimes = isWeekend ? getWeekendHours() : getWeekdayHours(); // Get appropriate times
+    const currentTime = `${now.getHours()}:${now.getMinutes() < 10 ? "0" : ""}${now.getMinutes()}`;
+
+    return allTimes.filter(time => {
+      const [hours, minutes] = time.split(":").map(Number);
+      const timeDate = new Date();
+      timeDate.setHours(hours, minutes, 0, 0);
+      return timeDate > now;
+    });
   };
 
   const handleSave = async () => {
@@ -150,17 +165,31 @@ export default function Appointment() {
                     <button
                       id="prevMonth"
                       className="text-white-blue"
-                      onClick={() => setCurrentMonth((prev) => (prev === 0 ? 11 : prev - 1))}
+                      onClick={() => {
+                        if (currentMonth === 0) {
+                          setCurrentMonth(11);
+                          setCurrentYear(prev => prev - 1);
+                        } else {
+                          setCurrentMonth(prev => prev - 1);
+                        }
+                      }}
                     >
-                      Previous
+                      previous
                     </button>
                     <h2 id="currentMonth" className="text-white-blue"></h2>
                     <button
                       id="nextMonth"
                       className="text-white-blue"
-                      onClick={() => setCurrentMonth((prev) => (prev === 11 ? 0 : prev + 1))}
+                      onClick={() => {
+                        if (currentMonth === 11) {
+                          setCurrentMonth(0);
+                          setCurrentYear(prev => prev + 1);
+                        } else {
+                          setCurrentMonth(prev => prev + 1);
+                        }
+                      }}
                     >
-                      Next
+                      next
                     </button>
                   </div>
                   <div className="grid grid-cols-7 gap-2 p-4" id="calendar"></div>
@@ -170,8 +199,8 @@ export default function Appointment() {
 
             {selectedDate && (
               <div className="p-4">
-                <h3 className="text-lg font-semibold text-gray-700">Selected Date: {selectedDate.toDateString()}</h3>
-                <h4 className="text-md font-medium text-gray-600 mt-4">Select a Time:</h4>
+                <h3 className="text-lg font-semibold text-main-blue">selected date: {selectedDate.toDateString()}</h3>
+                <h4 className="text-md font-medium text-main-blue mt-4">select a time:</h4>
                 <ul className="grid grid-cols-3 gap-2 mt-2">
                   {availableTimes.map((time) => (
                     <li key={time}>
@@ -194,10 +223,10 @@ export default function Appointment() {
                 <div className="flex items-center justify-center mt-4">
                   <button
                     type="button"
-                    className="px-16 py-2 text-white bg-main-blue rounded-lg"
+                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
                     onClick={handleSave}
                   >
-                    Save
+                    save
                   </button>
                 </div>
               </div>
