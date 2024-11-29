@@ -14,52 +14,42 @@ declare global {
   }
 }
 
+
+// Initialize the MQTT handler
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
 (async () => {
   try {
     await mqttHandler.connect();
 
-    // Subscribe to the getAllClinics queue
-    await mqttHandler.subscribe("tooth-beacon/clinics/get-all", async (msg) => {
+    // Subscribe to the getAllClinic topic
+    await mqttHandler.subscribe("tooth-beacon/clinic/getAllClinics", async (msg) => {
+      console.log("Message received on getAllClinic topic:", msg || "No payload provided");
+    
       try {
-        console.log("Message received for getAllClinics:", msg);
-
-        // Process the request
-        const clinics = await Clinic.find(); // Fetch all clinics
-
-        // Publish the response
+        const clinics = await Clinic.find();
+        console.log("Clinics fetched successfully:", clinics);
+    
         await mqttHandler.publish(
-          "tooth-beacon/clinics/response",
+          "tooth-beacon/clinic/allClinics",
           JSON.stringify({ clinics })
         );
-        console.log("Clinic data published:", clinics);
+    
+        console.log("Clinics published successfully.");
       } catch (error) {
-        console.error("Error processing getAllClinics message:", error);
-
-        // Publish an error message
+        console.error("Error fetching clinics:", error);
         await mqttHandler.publish(
-          "tooth-beacon/clinics/response",
-          JSON.stringify({ message: "Error fetching clinics", error })
+          "tooth-beacon/clinic/allClinics",
+          JSON.stringify({ error: "Error fetching clinics", details: error })
         );
       }
     });
-
-    console.log("Subscription for getAllClinics initialized.");
   } catch (error) {
-    console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);
+    console.error("Error connecting MQTT handler:", error);
   }
 })();
 
-export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
-  try {
-    const clinics = await Clinic.find();  // Fetch all clinics
-    res.status(200).json({ clinics });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error fetching clinics" });
-  }
-};
+
 
 export const createClinic: RequestHandler = async (req, res): Promise<void> => {
   const { city, address, clinicName, password, openingHours, coordinates } = req.body;
@@ -98,6 +88,17 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
         coordinates: clinic.coordinates,
       },
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get all clinics
+export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const clinics = await Clinic.find();
+    res.status(200).json({ clinics });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

@@ -56,7 +56,7 @@ const Map: React.FC = () => {
   useEffect(() => {
     const fetchClinics = async () => {
       try {
-        const response = await fetch("/api/getClinics");
+        const response = await fetch("/api/getAllClinics");
         const data = await response.json();
         setClinics(data.clinics);
       } catch (error) {
