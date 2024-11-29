@@ -51,6 +51,16 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
   }
 })();
 
+export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    const clinics = await Clinic.find();  // Fetch all clinics
+    res.status(200).json({ clinics });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching clinics" });
+  }
+};
+
 export const createClinic: RequestHandler = async (req, res): Promise<void> => {
   const { city, address, clinicName, password, openingHours, coordinates } = req.body;
 
