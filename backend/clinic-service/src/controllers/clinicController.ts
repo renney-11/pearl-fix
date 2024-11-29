@@ -23,7 +23,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
     await mqttHandler.connect();
 
     // Subscribe to the getAllClinic topic
-    await mqttHandler.subscribe("tooth-beacon/clinic/getAllClinics", async (msg) => {
+    await mqttHandler.subscribe("tooth-beacon/clinic/get-all", async (msg) => {
       console.log("Message received on getAllClinic topic:", msg || "No payload provided");
     
       try {
@@ -31,7 +31,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         console.log("Clinics fetched successfully:", clinics);
     
         await mqttHandler.publish(
-          "tooth-beacon/clinic/allClinics",
+          "tooth-beacon/clinic/all-data",
           JSON.stringify({ clinics })
         );
     
@@ -39,7 +39,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       } catch (error) {
         console.error("Error fetching clinics:", error);
         await mqttHandler.publish(
-          "tooth-beacon/clinic/allClinics",
+          "tooth-beacon/clinic/all-data",
           JSON.stringify({ error: "Error fetching clinics", details: error })
         );
       }

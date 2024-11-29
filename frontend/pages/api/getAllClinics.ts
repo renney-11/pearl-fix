@@ -14,17 +14,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const channel = await connection.createChannel();
 
     // Publish the message to request all clinics
-    const getAllClinicsQueue = "tooth-beacon/clinic/getAllClinics";
+    const getAllClinicsQueue = "tooth-beacon/clinic/get-all";
     await channel.assertQueue(getAllClinicsQueue, { durable: true });
 
-    const payload = {}; // No specific payload needed for requesting all clinics
+    const payload = {};
     channel.sendToQueue(getAllClinicsQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
     console.log("Published message to request all clinics");
 
-    // Ensure the response queue exists
-    const responseQueue = "tooth-beacon/clinic/allClinics";
+    const responseQueue = "tooth-beacon/clinic/all-data";
     await channel.assertQueue(responseQueue, { durable: true });
 
     console.log("Waiting for clinic data...");
@@ -35,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         channel.close();
         connection.close();
         reject("Timeout waiting for clinic data.");
-      }, 10000); // Wait up to 10 seconds
+      }, 10000);
 
       channel.consume(
         responseQueue,

@@ -9,7 +9,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
-// Type for Clinic
 interface Clinic {
   clinicName: string;
   address: string;
@@ -104,67 +103,64 @@ const Map: React.FC = () => {
         return;
       }
   
-      // Clear any existing route on the map
-      const existingRoutes = map._layers;  // Get all layers
-      for (const layerId in existingRoutes) {
-        const layer = existingRoutes[layerId];
+      // Clear any existing routes on the map
+      map.eachLayer((layer: L.Layer) => {
         if (layer instanceof L.Routing.Control) {
-          map.removeLayer(layer);  // Remove any existing routing control layers
+          map.removeLayer(layer);
         }
-      }
+      });
   
-      // Close the popup (close it by accessing the marker instance directly)
+      // Close the popup on the marker
       if (markerRef.current) {
-        markerRef.current.closePopup();  // Close the popup on the marker
+        markerRef.current.closePopup();
       }
   
-      // Create routing control
-      const routingControl = L.Routing.control({
-        waypoints: [
-          L.latLng(userLocation[0], userLocation[1]), // User's location
-          L.latLng(clinicCoordinates[0], clinicCoordinates[1]), // Clinic location
+      // Create a Plan with PlanOptions (including createMarker)
+      const plan = L.Routing.plan(
+        [
+          L.latLng(userLocation[0], userLocation[1]),
+          L.latLng(clinicCoordinates[0], clinicCoordinates[1]),
         ],
-        routeWhileDragging: true, // Optionally, allows for interactive route adjustment
-        show: false, // Prevents routing control from showing the user location dot.
+        {
+          createMarker: () => false,
+        }
+      );
+  
+      // Create Routing Control and pass the Plan to it
+      const routingControl = L.Routing.control({
+        plan,
+        lineOptions: {
+          styles: [{ color: 'blue', opacity: 1, weight: 5 }],
+          extendToWaypoints: true,
+          missingRouteTolerance: 0.01,
+        },
+        show: false,
       }).addTo(map);
   
-      // Disable the blue dot that appears with geolocation
-      map.on('locationfound', (event: L.LocationEvent) => {
-        // Remove the default location marker (blue dot)
-        if (event) {
-          map.removeLayer(event);
-        }
-      });
-  
-      // Optional: Disable geolocation control entirely (prevents blue dot)
-      const geolocationControl = map.locate({
-        watch: true, // Keep tracking the location
-        setView: true, // Adjust map view to follow the user
-        enableHighAccuracy: true, // Allow higher accuracy
-        maxZoom: 16,
-        timeout: 10000, // 10 seconds timeout
-      });
-  
-      // After the route is drawn, apply the styles to the routing container
+      // Customize the route container (for better UI appearance)
       routingControl.on("routesfound", () => {
         const routeContainer = document.querySelector(".leaflet-routing-container");
   
-        // Ensure the container exists before applying styles
         if (routeContainer && routeContainer instanceof HTMLElement) {
-          routeContainer.style.maxHeight = "370px";  // Set a max height for the instructions container
-          routeContainer.style.overflowY = "auto";  // Enable vertical scrolling
-        
-          // Set an off-white background color
-          routeContainer.style.backgroundColor = "#f8f8f8";  // Off-white background
-  
-          // Optional: Add padding and border-radius for a nicer appearance
+          routeContainer.style.maxHeight = "370px";
+          routeContainer.style.overflowY = "auto";
+          routeContainer.style.backgroundColor = "#f8f8f8";
           routeContainer.style.padding = "10px";
           routeContainer.style.borderRadius = "8px";
-          routeContainer.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";  // Optional shadow for better visibility
+          routeContainer.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
         }
       });
-    };
   
+      // Geolocation tracking
+      map.locate({
+        watch: true,
+        setView: true,
+        enableHighAccuracy: true,
+        maxZoom: 16,
+        timeout: 10000,
+      });
+    };
+    
     return (
       <>
         {/* Clinic markers */}
