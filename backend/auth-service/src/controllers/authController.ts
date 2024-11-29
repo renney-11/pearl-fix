@@ -27,7 +27,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
     await mqttHandler.connect();
 
     // Subscribe to the patient registration queue
-    await mqttHandler.subscribe("tooth-beacon/authentication/register", async (msg) => {
+    await mqttHandler.subscribe("pearl-fix/authentication/register", async (msg) => {
       try {
         console.log("Message received on registration:", msg);
 
@@ -37,7 +37,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         } catch (err) {
           console.error("Failed to parse message:", err);
           await mqttHandler.publish(
-            "tooth-beacon/authentication/authenticate",
+            "pearl-fix/authentication/authenticate",
             JSON.stringify({ message: "Invalid message format" })
           );
           return;
@@ -63,7 +63,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         const existingPatient = await Patient.findOne({ email });
         if (existingPatient) {
           await mqttHandler.publish(
-            "tooth-beacon/authentication/authenticate",
+            "pearl-fix/authentication/authenticate",
             JSON.stringify({ message: "Patient already exists" })
           );
           console.log("Patient already exists:", email);
@@ -76,7 +76,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
         const token = await generateToken({ id: patient.id, type: "patient" });
         await mqttHandler.publish(
-          "tooth-beacon/authentication/authenticate",
+          "pearl-fix/authentication/authenticate",
           JSON.stringify({ token })
         );
         console.log("Patient registered and token published:", { name, email });
@@ -85,14 +85,14 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         console.error("Error processing registration message:", errorMessage);
 
         await mqttHandler.publish(
-          "tooth-beacon/authentication/authenticate",
+          "pearl-fix/authentication/authenticate",
           JSON.stringify({ message: "Error registering patient", error: errorMessage })
         );
       }
     });
 
     // Subscribe to the login queue
-    await mqttHandler.subscribe("tooth-beacon/authentication/login", async (msg) => {
+    await mqttHandler.subscribe("pearl-fix/authentication/login", async (msg) => {
       try {
         console.log("Message received on login:", msg);
 
@@ -102,7 +102,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         } catch (err) {
           console.error("Failed to parse login message:", err);
           await mqttHandler.publish(
-            "tooth-beacon/authentication/authenticate",
+            "pearl-fix/authentication/authenticate",
             JSON.stringify({ message: "Invalid message format" })
           );
           return;
@@ -113,7 +113,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         if (!email || !password) {
           console.error("Missing email or password in login request");
           await mqttHandler.publish(
-            "tooth-beacon/authentication/authenticate",
+            "pearl-fix/authentication/authenticate",
             JSON.stringify({ message: "Missing email or password" })
           );
           return;
@@ -130,7 +130,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         if (!user || !(await bcrypt.compare(password, user.password))) {
           console.error("Invalid credentials for email:", email);
           await mqttHandler.publish(
-            "tooth-beacon/authentication/authenticate",
+            "pearl-fix/authentication/authenticate",
             JSON.stringify({ message: "Invalid credentials" })
           );
           return;
@@ -138,7 +138,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
         const token = await generateToken({ id: user.id, type: userType });
         await mqttHandler.publish(
-          "tooth-beacon/authentication/authenticate",
+          "pearl-fix/authentication/authenticate",
           JSON.stringify({ token })
         );
         console.log("Login successful and token published for email:", email);
@@ -147,7 +147,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         console.error("Error processing login message:", errorMessage);
 
         await mqttHandler.publish(
-          "tooth-beacon/authentication/authenticate",
+          "pearl-fix/authentication/authenticate",
           JSON.stringify({ message: "Error during login", error: errorMessage })
         );
       }
@@ -174,7 +174,7 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
   try {
     const existingDentist = await Dentist.findOne({ email });
     if (existingDentist) {
-      await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ message: "Dentist already exists" }));
+      await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ message: "Dentist already exists" }));
       res.status(400).json({ message: "Dentist already exists" });
       return;
     }
@@ -191,7 +191,7 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
     await dentist.save();
 
     const token = await generateToken({ id: dentist.id, type: "dentist" });
-    await mqttHandler.publish("tooth-beacon/authentication/authenticate", JSON.stringify({ token }));
+    await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ token }));
 
     res.status(200).json({ token });
   } catch (error) {
