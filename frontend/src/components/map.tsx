@@ -19,9 +19,7 @@ interface Clinic {
 }
 
 // Custom Map View Updater
-const UpdateMapView: React.FC<{ location: [number, number] }> = ({
-  location,
-}) => {
+const UpdateMapView: React.FC<{ location: [number, number] }> = ({ location }) => {
   const map = useMap();
   useEffect(() => {
     map.setView(location, 13);
@@ -32,6 +30,8 @@ const UpdateMapView: React.FC<{ location: [number, number] }> = ({
 const Map: React.FC = () => {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [isNavigationActive, setIsNavigationActive] = useState(false); // New state for navigation status
+  const routingControlRef = useRef<L.Routing.Control | null>(null); // Ref to store routing control
 
   // Fetch the user's current location
   useEffect(() => {
@@ -96,25 +96,25 @@ const Map: React.FC = () => {
   // Map component to handle routing
   const MapWithRouting: React.FC = () => {
     const map = useMap();
-  
+
     const handleNavigate = (clinicCoordinates: [number, number], markerRef: React.RefObject<L.Marker>) => {
       if (!userLocation) {
         alert("User location is not available.");
         return;
       }
-  
+
       // Clear any existing routes on the map
       map.eachLayer((layer: L.Layer) => {
         if (layer instanceof L.Routing.Control) {
           map.removeLayer(layer);
         }
       });
-  
+
       // Close the popup on the marker
       if (markerRef.current) {
         markerRef.current.closePopup();
       }
-  
+
       // Create a Plan with PlanOptions (including createMarker)
       const plan = L.Routing.plan(
         [
@@ -125,7 +125,7 @@ const Map: React.FC = () => {
           createMarker: () => false,
         }
       );
-  
+
       // Create Routing Control and pass the Plan to it
       const routingControl = L.Routing.control({
         plan,
@@ -136,11 +136,17 @@ const Map: React.FC = () => {
         },
         show: false,
       }).addTo(map);
-  
+
+      // Store the routing control in the ref
+      routingControlRef.current = routingControl;
+
+      // Set navigation state to active
+      setIsNavigationActive(true);
+
       // Customize the route container (for better UI appearance)
       routingControl.on("routesfound", () => {
         const routeContainer = document.querySelector(".leaflet-routing-container");
-  
+
         if (routeContainer && routeContainer instanceof HTMLElement) {
           routeContainer.style.maxHeight = "370px";
           routeContainer.style.overflowY = "auto";
@@ -150,7 +156,7 @@ const Map: React.FC = () => {
           routeContainer.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
         }
       });
-  
+
       // Geolocation tracking
       map.locate({
         watch: true,
@@ -160,7 +166,7 @@ const Map: React.FC = () => {
         timeout: 10000,
       });
     };
-    
+
     return (
       <>
         {/* Clinic markers */}
@@ -169,7 +175,7 @@ const Map: React.FC = () => {
             clinic.coordinates.latitude,
             clinic.coordinates.longitude,
           ];
-          const markerRef = useRef<L.Marker>(null);  // Create ref for marker instance
+          const markerRef = useRef<L.Marker>(null); // Create ref for marker instance
           return (
             <Marker key={index} position={position} icon={clinicIcon} ref={markerRef}>
               <Popup>
@@ -203,6 +209,14 @@ const Map: React.FC = () => {
     );
   };
 
+  const stopNavigation = () => {
+    if (routingControlRef.current) {
+      routingControlRef.current.remove(); // Properly remove the routing control
+      routingControlRef.current = null; // Reset the ref
+    }
+    setIsNavigationActive(false); // Set navigation state to inactive
+  };
+
   return (
     <div className="h-[400px] w-full">
       <MapContainer
@@ -233,7 +247,20 @@ const Map: React.FC = () => {
 
         {/* Map with routing */}
         <MapWithRouting />
+
       </MapContainer>
+
+      {/* Stop Navigation button only visible when navigation is active */}
+      {isNavigationActive && (
+        <div className="absolute top-1/3 left-[89%] transform -translate-x-1/2 -translate-y-1/2">
+          <button
+            onClick={stopNavigation}
+            className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700"
+          >
+            Stop Navigation
+          </button>
+        </div>
+      )}
     </div>
   );
 };

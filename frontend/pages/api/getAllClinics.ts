@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const channel = await connection.createChannel();
 
     // Publish the message to request all clinics
-    const getAllClinicsQueue = "tooth-beacon/clinic/get-all";
+    const getAllClinicsQueue = "pearl-fix/clinic/get-all";
     await channel.assertQueue(getAllClinicsQueue, { durable: true });
 
     const payload = {};
@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     console.log("Published message to request all clinics");
 
-    const responseQueue = "tooth-beacon/clinic/all-data";
+    const responseQueue = "pearl-fix/clinic/all-data";
     await channel.assertQueue(responseQueue, { durable: true });
 
     console.log("Waiting for clinic data...");
