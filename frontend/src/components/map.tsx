@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import L, { divIcon } from "leaflet";
 import "leaflet-routing-machine";
 import "leaflet/dist/leaflet.css";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
@@ -22,7 +22,6 @@ interface Clinic {
   };
 }
 
-// Custom Map View Updater
 const UpdateMapView: React.FC<{ location: [number, number] }> = ({
   location,
 }) => {
@@ -38,9 +37,9 @@ const Map: React.FC = () => {
     null
   );
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [isNavigationActive, setIsNavigationActive] = useState(false); // State for navigation status
-  const routingControlRef = useRef<L.Routing.Control | null>(null); // Ref for routing control
-  const router = useRouter(); // Initialize useRouter hook
+  const [isNavigationActive, setIsNavigationActive] = useState(false);
+  const routingControlRef = useRef<L.Routing.Control | null>(null);
+  const router = useRouter();
 
   // Fetch the user's current location
   useEffect(() => {
@@ -71,7 +70,6 @@ const Map: React.FC = () => {
         console.error("Error fetching clinics:", error);
       }
     };
-
     fetchClinics();
   }, []);
 
@@ -102,7 +100,6 @@ const Map: React.FC = () => {
     popupAnchor: [0, -24],
   });
 
-  // Map component to handle routing
   const MapWithRouting: React.FC = () => {
     const map = useMap();
 
@@ -115,30 +112,24 @@ const Map: React.FC = () => {
         return;
       }
 
-      // Clear any existing routes on the map
       map.eachLayer((layer: L.Layer) => {
         if (layer instanceof L.Routing.Control) {
           map.removeLayer(layer);
         }
       });
 
-      // Close the popup on the marker
       if (markerRef.current) {
         markerRef.current.closePopup();
       }
 
-      // Create a Plan with PlanOptions (including createMarker)
       const plan = L.Routing.plan(
         [
           L.latLng(userLocation[0], userLocation[1]),
           L.latLng(clinicCoordinates[0], clinicCoordinates[1]),
         ],
-        {
-          createMarker: () => false,
-        }
+        { createMarker: () => false }
       );
 
-      // Create Routing Control and pass the Plan to it
       const routingControl = L.Routing.control({
         plan,
         lineOptions: {
@@ -149,13 +140,9 @@ const Map: React.FC = () => {
         show: false,
       }).addTo(map);
 
-      // Store the routing control in the ref
       routingControlRef.current = routingControl;
-
-      // Set navigation state to active
       setIsNavigationActive(true);
 
-      // Customize the route container (for better UI appearance)
       routingControl.on("routesfound", () => {
         const routeContainer = document.querySelector(
           ".leaflet-routing-container"
@@ -171,7 +158,6 @@ const Map: React.FC = () => {
         }
       });
 
-      // Geolocation tracking
       map.locate({
         watch: true,
         setView: true,
@@ -183,7 +169,6 @@ const Map: React.FC = () => {
 
     return (
       <>
-        {/* Clinic markers */}
         {clinics.map((clinic, index) => {
           const position: [number, number] = [
             clinic.coordinates.latitude,
@@ -205,17 +190,14 @@ const Map: React.FC = () => {
                   <p className="text-sm text-[#1e3582] font-medium">
                     Address: {clinic.address}
                   </p>
-
-                  {/* Displaying the opening hours */}
                   <p className="text-sm text-[#1e3582] font-medium">
                     Opening Hours: {clinic.openingHours.start} -{" "}
                     {clinic.openingHours.end}
                   </p>
-
                   <div className="flex justify-between">
                     <button
                       className="bg-blue-600 text-white py-1 px-3 rounded-md text-sm hover:bg-blue-700"
-                      onClick={() => handleNavigate(position, markerRef)} // Pass the markerRef to handleNavigate
+                      onClick={() => handleNavigate(position, markerRef)}
                     >
                       Navigate
                     </button>
@@ -223,7 +205,7 @@ const Map: React.FC = () => {
                       className="bg-green-600 text-white py-1 px-3 rounded-md text-sm hover:bg-green-700"
                       onClick={() =>
                         router.push("/patient-tool/find-appointment")
-                      } // Navigate to booking page
+                      }
                     >
                       Book Now
                     </button>
@@ -246,12 +228,12 @@ const Map: React.FC = () => {
   };
 
   return (
-    <div className="h-[400px] w-full">
+    <div className="relative h-[400px] w-full">
       <MapContainer
         center={gothenburgCoords}
         zoom={13}
         scrollWheelZoom={true}
-        className="h-full w-full"
+        className="h-full w-full z-0" // Add z-0 to ensure the map stays behind
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -281,7 +263,7 @@ const Map: React.FC = () => {
       {isNavigationActive && (
         <button
           onClick={stopNavigation}
-          className="absolute bottom-32 left-1/2 transform -translate-x-1/2 bg-red-600 text-white py-2 px-4 rounded-full hover:bg-red-700"
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white py-2 px-4 rounded-full shadow-lg hover:bg-red-700 focus:outline-none z-10"
         >
           Stop Navigation
         </button>

@@ -98,6 +98,10 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
 export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
   try {
     const clinics = await Clinic.find();
+
+    // Prevent caching of the response
+    res.setHeader('Cache-Control', 'no-store');
+
     res.status(200).json({ clinics });
   } catch (error) {
     console.error(error);

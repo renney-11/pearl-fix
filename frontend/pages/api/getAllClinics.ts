@@ -1,17 +1,35 @@
+import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import { NextApiRequest, NextApiResponse } from "next";
-import amqp from "amqplib";
+
+interface Clinic {
+  _id: string;
+  clinicName: string;
+  address: string;
+  city: string;
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  openingHours: {
+    start: string;
+    end: string;
+  };
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  let connection: Connection | null = null;
+  let channel: Channel | null = null;
+
   try {
     // Connect to RabbitMQ
-    const connection = await amqp.connect(
+    connection = await amqp.connect(
       "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
     );
-    const channel = await connection.createChannel();
+    channel = await connection.createChannel();
 
     // Publish the message to request all clinics
     const getAllClinicsQueue = "pearl-fix/clinic/get-all";
@@ -29,23 +47,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log("Waiting for clinic data...");
 
     // Wait for the response message
-    const clinicsData = await new Promise((resolve, reject) => {
+    const clinicsData = await new Promise<Clinic[]>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        channel.close();
-        connection.close();
+        if (channel) channel.close();
+        if (connection) connection.close();
         reject("Timeout waiting for clinic data.");
-      }, 10000);
+      }, 10000); // 10 seconds timeout
 
-      channel.consume(
+      const allClinics: Clinic[] = []; // Define this as an array of Clinic objects
+
+      channel?.consume(
         responseQueue,
-        (msg) => {
+        (msg: ConsumeMessage | null) => {
           if (msg !== null) {
             const message = JSON.parse(msg.content.toString());
-            channel.ack(msg);
+            console.log("Received clinic data:", message.clinics);
+
+            // Add the clinics data to the array
+            allClinics.push(...message.clinics);
+
+            // If we expect all clinic data in one message, resolve the promise here
             clearTimeout(timeout);
-            channel.close();
-            connection.close();
-            resolve(message.clinics || []);
+            resolve(allClinics); // Resolve with all the clinics received
           }
         },
         { noAck: false }
@@ -54,8 +77,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Respond with the clinics data
     res.status(200).json({ clinics: clinicsData });
+
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    // Ensure the connection and channel are closed
+    try {
+      if (channel) await channel.close();
+      if (connection) await connection.close();
+    } catch (error) {
+      console.error("Error closing connection/channel:", error);
+    }
   }
 }
