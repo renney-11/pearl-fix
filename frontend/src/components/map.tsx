@@ -1,11 +1,11 @@
 "use client";
 import { faStreetView, faTooth } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { divIcon } from "leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import L, { divIcon } from "leaflet";
 import "leaflet-routing-machine";
-import React, { useEffect, useState, useRef } from "react";
+import "leaflet/dist/leaflet.css";
+import { useRouter } from "next/navigation"; // Import useRouter
+import React, { useEffect, useRef, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
@@ -16,10 +16,16 @@ interface Clinic {
     latitude: number;
     longitude: number;
   };
+  openingHours: {
+    start: string;
+    end: string;
+  };
 }
 
 // Custom Map View Updater
-const UpdateMapView: React.FC<{ location: [number, number] }> = ({ location }) => {
+const UpdateMapView: React.FC<{ location: [number, number] }> = ({
+  location,
+}) => {
   const map = useMap();
   useEffect(() => {
     map.setView(location, 13);
@@ -28,10 +34,13 @@ const UpdateMapView: React.FC<{ location: [number, number] }> = ({ location }) =
 };
 
 const Map: React.FC = () => {
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(
+    null
+  );
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [isNavigationActive, setIsNavigationActive] = useState(false); // New state for navigation status
-  const routingControlRef = useRef<L.Routing.Control | null>(null); // Ref to store routing control
+  const [isNavigationActive, setIsNavigationActive] = useState(false); // State for navigation status
+  const routingControlRef = useRef<L.Routing.Control | null>(null); // Ref for routing control
+  const router = useRouter(); // Initialize useRouter hook
 
   // Fetch the user's current location
   useEffect(() => {
@@ -97,7 +106,10 @@ const Map: React.FC = () => {
   const MapWithRouting: React.FC = () => {
     const map = useMap();
 
-    const handleNavigate = (clinicCoordinates: [number, number], markerRef: React.RefObject<L.Marker>) => {
+    const handleNavigate = (
+      clinicCoordinates: [number, number],
+      markerRef: React.RefObject<L.Marker>
+    ) => {
       if (!userLocation) {
         alert("User location is not available.");
         return;
@@ -130,7 +142,7 @@ const Map: React.FC = () => {
       const routingControl = L.Routing.control({
         plan,
         lineOptions: {
-          styles: [{ color: 'blue', opacity: 1, weight: 5 }],
+          styles: [{ color: "blue", opacity: 1, weight: 5 }],
           extendToWaypoints: true,
           missingRouteTolerance: 0.01,
         },
@@ -145,7 +157,9 @@ const Map: React.FC = () => {
 
       // Customize the route container (for better UI appearance)
       routingControl.on("routesfound", () => {
-        const routeContainer = document.querySelector(".leaflet-routing-container");
+        const routeContainer = document.querySelector(
+          ".leaflet-routing-container"
+        );
 
         if (routeContainer && routeContainer instanceof HTMLElement) {
           routeContainer.style.maxHeight = "370px";
@@ -177,25 +191,39 @@ const Map: React.FC = () => {
           ];
           const markerRef = useRef<L.Marker>(null); // Create ref for marker instance
           return (
-            <Marker key={index} position={position} icon={clinicIcon} ref={markerRef}>
+            <Marker
+              key={index}
+              position={position}
+              icon={clinicIcon}
+              ref={markerRef}
+            >
               <Popup>
                 <div className="p-4 bg-white rounded-lg shadow-lg w-[220px]">
                   <h3 className="text-lg font-semibold text-[#1e3582] mb-2">
                     {clinic.clinicName}
                   </h3>
-                  <p className="text-sm text-[#1e3582] font-medium">Address: {clinic.address}</p>
+                  <p className="text-sm text-[#1e3582] font-medium">
+                    Address: {clinic.address}
+                  </p>
+
+                  {/* Displaying the opening hours */}
+                  <p className="text-sm text-[#1e3582] font-medium">
+                    Opening Hours: {clinic.openingHours.start} -{" "}
+                    {clinic.openingHours.end}
+                  </p>
+
                   <div className="flex justify-between">
                     <button
                       className="bg-blue-600 text-white py-1 px-3 rounded-md text-sm hover:bg-blue-700"
-                      onClick={() => handleNavigate(position, markerRef)}  // Pass the markerRef to handleNavigate
+                      onClick={() => handleNavigate(position, markerRef)} // Pass the markerRef to handleNavigate
                     >
                       Navigate
                     </button>
                     <button
                       className="bg-green-600 text-white py-1 px-3 rounded-md text-sm hover:bg-green-700"
-                      onClick={() => {
-                        alert("Booking appointment...");
-                      }}
+                      onClick={() =>
+                        router.push("/patient-tool/find-appointment")
+                      } // Navigate to booking page
                     >
                       Book Now
                     </button>
@@ -237,7 +265,7 @@ const Map: React.FC = () => {
               <Popup closeButton={true}>
                 <div>
                   <span className="text-main-blue">You are here!</span>
-                  <div className="absolute w-3 h-3 rotate-45 transform bottom-[-6px] left-1/2 translate-x-[-50%] z-10" />
+                  <div className="absolute w-3 h-3 rotate-45 transform bottom-[-6px] left-[6px] border-t-[3px] border-t-transparent border-l-[3px] border-l-white" />
                 </div>
               </Popup>
             </Marker>
@@ -245,21 +273,18 @@ const Map: React.FC = () => {
           </>
         )}
 
-        {/* Map with routing */}
+        {/* Map with clinic markers and routing */}
         <MapWithRouting />
-
       </MapContainer>
 
-      {/* Stop Navigation button only visible when navigation is active */}
+      {/* Conditional rendering of Stop Navigation button */}
       {isNavigationActive && (
-        <div className="absolute top-1/3 left-[89%] transform -translate-x-1/2 -translate-y-1/2">
-          <button
-            onClick={stopNavigation}
-            className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700"
-          >
-            Stop Navigation
-          </button>
-        </div>
+        <button
+          onClick={stopNavigation}
+          className="absolute bottom-32 left-1/2 transform -translate-x-1/2 bg-red-600 text-white py-2 px-4 rounded-full hover:bg-red-700"
+        >
+          Stop Navigation
+        </button>
       )}
     </div>
   );
