@@ -1,7 +1,7 @@
 # PEARL FIX
 
 ## Architecture
-The architecture of Tooth Beacon follows a **Service-Oriented Architecture (SOA)** style.
+The architecture of Pearl Fix follows a **Service-Oriented Architecture (SOA)** style.
 
 <details>
   <summary><strong>Component Diagram</strong></summary>
