@@ -10,11 +10,16 @@ const app = express();
 
 app.use(express.json());
 
+// Add CORS middleware
 app.use(
   cors({
-    origin: ["*"],
+    origin: "http://localhost:3000", // Allow requests from this origin
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
   })
 );
+
+app.options("*", cors()); // Respond to all OPTIONS requests
 
 // Connect to the database
 dbConnect();

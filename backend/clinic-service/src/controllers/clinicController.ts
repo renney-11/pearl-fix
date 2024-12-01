@@ -2,6 +2,7 @@ import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import Clinic from "../models/Clinic";
 import { IClinic } from "../models/Clinic";
+import { MQTTHandler } from "../../../mqtt/MqttHandler";
 
 declare global {
   namespace Express {
@@ -12,6 +13,43 @@ declare global {
     }
   }
 }
+
+
+// Initialize the MQTT handler
+const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
+
+(async () => {
+  try {
+    await mqttHandler.connect();
+
+    // Subscribe to the getAllClinic topic
+    await mqttHandler.subscribe("pearl-fix/clinic/get-all", async (msg) => {
+      console.log("Message received on getAllClinic topic:", msg || "No payload provided");
+    
+      try {
+        const clinics = await Clinic.find();
+        console.log("Clinics fetched successfully:", clinics);
+    
+        await mqttHandler.publish(
+          "pearl-fix/clinic/all-data",
+          JSON.stringify({ clinics })
+        );
+    
+        console.log("Clinics published successfully.");
+      } catch (error) {
+        console.error("Error fetching clinics:", error);
+        await mqttHandler.publish(
+          "pearl-fix/clinic/all-data",
+          JSON.stringify({ error: "Error fetching clinics", details: error })
+        );
+      }
+    });
+  } catch (error) {
+    console.error("Error connecting MQTT handler:", error);
+  }
+})();
+
+
 
 export const createClinic: RequestHandler = async (req, res): Promise<void> => {
   const { city, address, clinicName, password, openingHours, coordinates } = req.body;
@@ -60,6 +98,10 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
 export const getAllClinics: RequestHandler = async (req, res): Promise<void> => {
   try {
     const clinics = await Clinic.find();
+
+    // Prevent caching of the response
+    res.setHeader('Cache-Control', 'no-store');
+
     res.status(200).json({ clinics });
   } catch (error) {
     console.error(error);
