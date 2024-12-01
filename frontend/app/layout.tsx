@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tooth Beacon",
+  title: "PEARL FIX",
   description: "Guide you to the best dental care",
 };
 
