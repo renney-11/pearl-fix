@@ -17,6 +17,11 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (formData.password.length<=7) {
+      alert("your password cannot be less than 8 characters");
+      return;
+    }
+
     try {
       const response = await fetch("/api/login", {
         method: "POST",
