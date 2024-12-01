@@ -20,8 +20,18 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (!formData.name.includes(" ")) {
+      alert("please enter both your first and last name.");
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       alert("passwords do not match!");
+      return;
+    }
+    
+    if (formData.password.length<=7) {
+      alert("password must be at least 8 characters");
       return;
     }
 
