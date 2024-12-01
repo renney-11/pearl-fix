@@ -22,6 +22,12 @@ export default {
       fontFamily: {
         sans: ['Figtree', 'sans-serif'], 
       },
+      screens: {
+        tablet: '768px',  // Set tablet breakpoint to 768px
+        laptop: '1024px', // Set laptop breakpoint to 1024px
+        mobileL: '480px', // for large mobile devices
+        mobileM: '360px', // for medium mobile devices
+      },
     },
   },
   plugins: [],
