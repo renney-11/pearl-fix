@@ -5,7 +5,7 @@ import Patient from "../models/Patient";
 import Dentist from "../models/Dentist";
 import { IPatient } from "../models/Patient";
 import { IDentist } from "../models/Dentist";
-import { validateFields, validateStringLength, validateEmailFormat, validateDentistOptionalFields } from "../middlewares/validators";
+import { validateFields, validateStringLength, validateEmailFormat, validateNameHasSpace } from "../middlewares/validators";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
 
 declare global {
@@ -55,10 +55,11 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         } as any;
 
         if (!validateFields(req, res, ["name", "email", "password"])) return;
-        if (!validateStringLength(req, res, "name", 32)) return;
-        if (!validateStringLength(req, res, "email", 32)) return;
-        if (!validateStringLength(req, res, "password", 32)) return;
+        if (!validateStringLength(req, res, "name", 32, 8)) return;
+        if (!validateStringLength(req, res, "email", 32, 8)) return;
+        if (!validateStringLength(req, res, "password", 32, 8)) return;
         if (!validateEmailFormat(req, res, "email")) return;
+        if (!validateNameHasSpace(req, res, "name")) return;
 
         const existingPatient = await Patient.findOne({ email });
         if (existingPatient) {
@@ -169,9 +170,16 @@ export const login: RequestHandler = async (req, res): Promise<void> => {
 
 export const registerDentist: RequestHandler = async (req, res): Promise<void> => {
   console.log('Received request to register dentist'); // Debug log
-  const { name, email, password, fikaBreak, lunchBreak, workdays } = req.body;
+  const { name, email, password, fikaBreak, lunchBreak } = req.body;
 
   try {
+    if (!validateFields(req, res, ["name", "email", "password"])) return;
+    if (!validateStringLength(req, res, "name", 32, 8)) return;
+    if (!validateStringLength(req, res, "email", 32, 8)) return;
+    if (!validateStringLength(req, res, "password", 32, 8)) return;
+    if (!validateEmailFormat(req, res, "email")) return;
+    if (!validateNameHasSpace(req, res, "name")) return;
+
     const existingDentist = await Dentist.findOne({ email });
     if (existingDentist) {
       await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ message: "Dentist already exists" }));
@@ -186,7 +194,6 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
       password: hashedPassword,
       fikaBreak,
       lunchBreak,
-      workdays,
     });
     await dentist.save();
 
