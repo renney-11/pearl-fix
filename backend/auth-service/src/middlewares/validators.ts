@@ -13,14 +13,29 @@ export const validateFields = (req: Request, res: Response, fields: string[]): b
 };
 
 // Validate max string length
-export const validateStringLength = (req: Request, res: Response, field: string, maxLength: number): boolean => {
-  if (req.body[field] && req.body[field].length > maxLength) {
-    const errorMessage = `${field.charAt(0).toUpperCase() + field.slice(1)} must be less than or equal to ${maxLength} characters long`;
-    res.status(400).json({ message: errorMessage });
-    return false;
+export const validateStringLength = (
+  req: Request,
+  res: Response,
+  field: string,
+  maxLength: number,
+  minLength: number = 0
+): boolean => {
+  const value = req.body[field];
+  if (value) {
+    if (value.length < minLength) {
+      const errorMessage = `${field.charAt(0).toUpperCase() + field.slice(1)} must be at least ${minLength} characters long`;
+      res.status(400).json({ message: errorMessage });
+      return false;
+    }
+    if (value.length > maxLength) {
+      const errorMessage = `${field.charAt(0).toUpperCase() + field.slice(1)} must be less than or equal to ${maxLength} characters long`;
+      res.status(400).json({ message: errorMessage });
+      return false;
+    }
   }
   return true;
 };
+
 
 // Validate email format
 export const validateEmailFormat = (req: Request, res: Response, field: string): boolean => {
@@ -43,13 +58,13 @@ export const validateEnumArray = (req: Request, res: Response, field: string, va
   return true;
 };
 
-// Validate optional fields for dentist registration
-export const validateDentistOptionalFields = (req: Request, res: Response): boolean => {
-  const { workdays } = req.body;
-
-  if (workdays && !validateEnumArray(req, res, "workdays", ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])) {
+// Validate name contains a space (ensures first and last name)
+export const validateNameHasSpace = (req: Request, res: Response, field: string): boolean => {
+  const value = req.body[field];
+  if (value && !value.includes(" ")) {
+    const errorMessage = `${field.charAt(0).toUpperCase() + field.slice(1)} must include both first and last name separated by a space`;
+    res.status(400).json({ message: errorMessage });
     return false;
   }
-
-  return true; // All validations passed
+  return true;
 };
