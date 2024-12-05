@@ -6,7 +6,6 @@ export interface IDentist extends Document {
   password: string;
   fikaBreak: { start: string; end: string };
   lunchBreak: { start: string; end: string };
-  workdays: string[];
 }
 
 const DentistSchema: Schema = new Schema({
@@ -20,11 +19,6 @@ const DentistSchema: Schema = new Schema({
   lunchBreak: {
     start: { type: String, default: "12:00", required: true },
     end: { type: String, default: "13:00", required: true },
-  },
-  workdays: {
-    type: [String],
-    enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-    required: true,
   },
 });
 

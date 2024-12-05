@@ -2,16 +2,13 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IBooking extends Document {
   dentistId: string;
-  patientId?: string;
+  patientId: string;
   status: 'available' | 'booked';
   timeSlot: {
     start: Date;
     end: Date;
   };
   clinicId: string;
-  notes?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
 }
 
 const BookingSchema: Schema = new Schema(
@@ -28,11 +25,7 @@ const BookingSchema: Schema = new Schema(
       end: { type: Date, required: true },
     },
     clinicId: { type: String, required: true },
-    notes: { type: String },
   },
-  {
-    timestamps: true, 
-  }
 );
 
 export default mongoose.model<IBooking>('Booking', BookingSchema);
