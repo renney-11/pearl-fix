@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
-import { MQTTHandler } from "../../../mqtt/MqttHandler";
+import { MQTTHandler } from "../mqtt/MqttHandler";
 import Patient from "../models/Patient";
 import Dentist from "../models/Dentist";
 import { IPatient } from "../models/Patient";

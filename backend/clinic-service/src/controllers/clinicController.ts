@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import Clinic from "../models/Clinic";
 import { IClinic } from "../models/Clinic";
-import { MQTTHandler } from "../../../mqtt/MqttHandler";
+import { MQTTHandler } from "../mqtt/MqttHandler";
 
 declare global {
   namespace Express {

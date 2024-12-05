@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import Booking from "../models/Booking";
 import { IBooking } from "../models/Booking";
+import { MQTTHandler } from "../mqtt/MqttHandler";
 import mongoose from "mongoose";
 
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
