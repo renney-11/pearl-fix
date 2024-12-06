@@ -6,6 +6,7 @@ export interface IDentist extends Document {
   password: string;
   fikaBreak: { start: string; end: string };
   lunchBreak: { start: string; end: string };
+  clinic: mongoose.Types.ObjectId;
 }
 
 const DentistSchema: Schema = new Schema({
@@ -20,6 +21,7 @@ const DentistSchema: Schema = new Schema({
     start: { type: String, default: "12:00", required: true },
     end: { type: String, default: "13:00", required: true },
   },
+  clinic: {type: mongoose.Schema.Types.ObjectId, default: null, ref: 'Clinic'}
 });
 
 // Export the model

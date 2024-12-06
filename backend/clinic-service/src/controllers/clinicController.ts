@@ -134,6 +134,14 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
       },
     });
     console.log(newClinic);
+
+    await mqttHandler.publish(
+      "pearl-fix/clinic/create/id",
+      JSON.stringify({ id: newClinic.id })
+    );
+    console.log(`Published successful message to "pearl-fix/clinic/create/address": ${newClinic.id}`);
+
+    mqttHandler.close();
   } catch (error) {
     console.error("Error during clinic creation:", error);
     res.status(500).json({ message: "Server error" });
