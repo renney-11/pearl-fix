@@ -154,6 +154,58 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       }
     });
 
+    // Create clinic with dentist
+    await mqttHandler.subscribe("pearl-fix/clinic/create/email", async (msg) => {
+      try {
+        console.log("Message received from clinic-service:", msg);
+
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(msg);
+        } catch (err) {
+          console.error("Failed to parse cetae clinic message:", err);
+          await mqttHandler.publish(
+            "pearl-fix/authentication/authenticate",
+            JSON.stringify({ message: "Invalid message format" })
+          );
+          return;
+        }
+
+        const { email } = parsedMessage;
+
+        if (!email) {
+          console.error("Missing email in create clinic request");
+          await mqttHandler.publish(
+            "pearl-fix/authentication/authenticate",
+            JSON.stringify({ message: "Missing email" })
+          );
+          return;
+        }
+
+        let dentist: IDentist | null = await Dentist.findOne({ email });
+        // let userType: "patient" | "dentist" = "patient";
+
+        if (!dentist) {
+          await mqttHandler.publish(
+            "pearl-fix/clinic/create/dentist",
+            JSON.stringify({ error: "Dentist with this email does not exist." })
+          );
+          return;
+        }
+
+        await mqttHandler.publish(
+          "pearl-fix/clinic/create/dentist",
+          JSON.stringify({ dentist })
+        );
+
+        console.log("Dentist found successfully", dentist);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("Error processing find dentist message:", errorMessage);
+
+      }
+    });
+
     console.log("Subscriptions for registration and login initialized.");
   } catch (error) {
     console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);

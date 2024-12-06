@@ -13,6 +13,7 @@ export interface IClinic extends Document {
     latitude: number;
     longitude: number;
   };
+  dentists: [mongoose.Types.ObjectId];
 }
 
 const ClinicSchema: Schema = new Schema({
@@ -28,6 +29,7 @@ const ClinicSchema: Schema = new Schema({
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true },
   },
+  dentists: [{type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Dentist'}],
 });
 
 export default mongoose.model<IClinic>('Clinic', ClinicSchema);
