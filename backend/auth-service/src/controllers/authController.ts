@@ -197,20 +197,62 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           "pearl-fix/clinic/create/dentist",
           JSON.stringify({ dentist })
         );
-
         console.log("Dentist found successfully", dentist);
+
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
         console.error("Error processing find dentist message:", errorMessage);
 
       }
     });
+    
+    await mqttHandler.subscribe("pearl-fix/clinic/create/id", handleClinicCreateIdMessage);
+
 
     console.log("Subscriptions for registration and login initialized.");
   } catch (error) {
     console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);
   }
 })();
+
+const handleClinicCreateIdMessage = async (msg: string): Promise<void> => {
+  try {
+    console.log("Message received on clinic create ID:", msg);
+
+    let parsedMessage;
+    try {
+      parsedMessage = JSON.parse(msg);
+    } catch (err) {
+      console.error("Failed to parse clinic create ID message:", err);
+      return;
+    }
+
+    const { id: clinicId, emails } = parsedMessage;
+
+    if (!clinicId || !Array.isArray(emails)) {
+      console.error("Missing clinic ID or dentist emails in message");
+      return;
+    }
+
+    // Update the dentist's clinic field for each email
+    for (const email of emails) {
+      const updatedDentist = await Dentist.findOneAndUpdate(
+        { email }, // Find the dentist by email
+        { clinic: clinicId }, // Set the clinic field to the clinic ID
+        { new: true } // Return the updated document
+      );
+
+      if (!updatedDentist) {
+        console.error(`Dentist with email ${email} not found`);
+      } else {
+        console.log(`Successfully updated dentist:`, updatedDentist);
+      }
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Error processing clinic ID message:", errorMessage);
+  }
+};
 
 export const register: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to register patients" });

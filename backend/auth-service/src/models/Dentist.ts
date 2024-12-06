@@ -8,6 +8,7 @@ export interface IDentist extends Document {
   lunchBreak: { start: string; end: string };
   availability: mongoose.Types.ObjectId[]; // List of Availability IDs
   bookings: mongoose.Types.ObjectId[]; // List of Booking IDs
+  clinic: mongoose.Types.ObjectId;
 }
 
 const DentistSchema: Schema = new Schema(
@@ -25,8 +26,9 @@ const DentistSchema: Schema = new Schema(
     },
     availability: [{ type: mongoose.Schema.Types.ObjectId, ref: "Availability" }],
     bookings: [{ type: mongoose.Schema.Types.ObjectId, ref: "Booking" }],
+    clinic: {type: mongoose.Schema.Types.ObjectId, ref: 'Clinic'},
   },
-  { timestamps: true } // Add createdAt and updatedAt timestamps
+  { timestamps: true }, // Add createdAt and updatedAt timestamps
 );
 
 // Export the model
