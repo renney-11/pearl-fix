@@ -1,30 +1,34 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document } from "mongoose";
 
-export interface IAvailability extends Document {
-    workingHours: {
-        
-    };
-    workDays: string[];
+export interface ITimeSlot {
+  start: Date;
+  end: Date;
+  status: "available" | "booked";
 }
 
-const AvailabilitySchema: Schema = new Schema({
-    workingHours: {
-        type: [Date],
-        required: true,
-        validate: {
-          validator: function (hours: Date[]) {
-            return hours.every(hour => {
-              const minutes = hour.getMinutes();
-              const validHour = hour.getHours();
-              return minutes === 0 && validHour >= 7 && validHour <= 16;
-            });
-          },
-          message: 'Working hours must be on the hour and between 07:00 and 16:00.',
-        },
-    },
+export interface IAvailability extends Document {
+  dentistId: mongoose.Types.ObjectId; // Reference to the Dentist
+  workDays: string[];
+  timeSlots: ITimeSlot[];
+}
+
+const TimeSlotSchema: Schema = new Schema({
+  start: { type: Date, required: true },
+  end: { type: Date, required: true },
+  status: { type: String, enum: ["available", "booked"], default: "available" },
+});
+
+const AvailabilitySchema: Schema = new Schema(
+  {
+    dentistId: { type: mongoose.Schema.Types.ObjectId, ref: "Dentist", required: true },
     workDays: {
-        type: [String],
-        enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        required: true,    
+      type: [String],
+      enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      required: true,
     },
-})
+    timeSlots: { type: [TimeSlotSchema], required: true },
+  },
+  { timestamps: true } // Add createdAt and updatedAt timestamps
+);
+
+export default mongoose.model<IAvailability>("Availability", AvailabilitySchema);
