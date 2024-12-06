@@ -137,9 +137,10 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
 
     await mqttHandler.publish(
       "pearl-fix/clinic/create/id",
-      JSON.stringify({ id: newClinic.id })
+      JSON.stringify({ id: newClinic.id, emails: dentists })
     );
-    console.log(`Published successful message to "pearl-fix/clinic/create/address": ${newClinic.id}`);
+    console.log(`Published successful message to "pearl-fix/clinic/create/id": ${newClinic.id} with emails: ${dentists}`);
+    
 
     mqttHandler.close();
   } catch (error) {

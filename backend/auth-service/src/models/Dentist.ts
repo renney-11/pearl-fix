@@ -21,7 +21,7 @@ const DentistSchema: Schema = new Schema({
     start: { type: String, default: "12:00", required: true },
     end: { type: String, default: "13:00", required: true },
   },
-  clinic: {type: mongoose.Schema.Types.ObjectId, default: null, ref: 'Clinic'}
+  clinic: {type: mongoose.Schema.Types.ObjectId, ref: 'Clinic'}
 });
 
 // Export the model
