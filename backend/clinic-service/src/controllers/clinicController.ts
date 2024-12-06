@@ -52,7 +52,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
 
 export const createClinic: RequestHandler = async (req, res): Promise<void> => {
-  const { city, address, clinicName, clinicEmail, openingHours, coordinates, dentists } = req.body;
+  const { city, address, clinicName, openingHours, coordinates, dentists } = req.body;
 
   try {
     // Check if clinic already exists
@@ -112,7 +112,6 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
       city,
       address,
       clinicName,
-      clinicEmail,
       openingHours,
       coordinates,
       dentists: receivedDentists, // Store received dentists

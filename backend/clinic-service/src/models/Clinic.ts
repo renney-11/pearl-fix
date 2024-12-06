@@ -4,7 +4,6 @@ export interface IClinic extends Document {
   city: string;
   address: string;
   clinicName: string;
-  clinicEmail: string;
   openingHours: {
     start: string; 
     end: string;
@@ -20,7 +19,6 @@ const ClinicSchema: Schema = new Schema({
   city: { type: String, required: true },
   address: { type: String, required: true, unique: true },
   clinicName: { type: String, required: true },
-  clinicEmail: { type: String, required: true },
   openingHours: {
     start: { type: String, required: true },
     end: { type: String, required: true },
