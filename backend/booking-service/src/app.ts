@@ -1,6 +1,7 @@
 import express from "express";
 import dbConnect from "./utils/dbConnect";
 import bookingRoutes from "./routes/booking";
+import availabilityRoutes from "./routes/availability";
 import errorHandler from "./middlewares/errorHandler";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -21,6 +22,7 @@ dbConnect();
 
 // Use clinic routes
 app.use("/api/v1/booking", bookingRoutes);
+app.use("/api/v1/availability", availabilityRoutes);
 
 
 // Error handler middleware
