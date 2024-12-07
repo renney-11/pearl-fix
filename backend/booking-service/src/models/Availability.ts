@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITimeSlot {
+  _id: mongoose.Types.ObjectId;
   start: Date;
   end: Date;
   status: "available" | "booked";

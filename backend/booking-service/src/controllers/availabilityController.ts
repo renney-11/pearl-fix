@@ -136,28 +136,35 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
-export const updateAvailability: RequestHandler = async (req, res): Promise<void> => {
-  const { dentistId } = req.params;
-  const { workDays, timeSlots } = req.body;
+export const removeAvailability: RequestHandler = async (req, res): Promise<void> => {
+  const { dentistId, timeSlotId } = req.params;
 
   try {
-    const availability = await Availability.findOneAndUpdate(
-      { dentistId },
-      { workDays, timeSlots },
-      { new: true }
-    );
+    const availability = await Availability.findOne({ dentist: dentistId });
 
     if (!availability) {
       res.status(404).json({ message: "Availability not found" });
       return;
     }
 
-    res.status(200).json({
-      message: "Availability updated successfully",
-      availability,
-    });
+    // Find the index of the time slot in the timeSlots array
+    const timeSlotIndex = availability.timeSlots.findIndex(
+      (slot) => slot._id.toString() === timeSlotId.toString()
+    );
+
+    if (timeSlotIndex === -1) {
+      res.status(404).json({ message: "Time slot not found" });
+      return;
+    }
+
+    // Remove the time slot from the array
+    availability.timeSlots.splice(timeSlotIndex, 1);
+
+    await availability.save();
+
+    res.status(200).json({ message: "Time slot removed successfully" });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error removing time slot:", error);
+    res.status(500).json({ message: "Server error", error });
   }
 };
