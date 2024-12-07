@@ -121,7 +121,8 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
   const { dentistId } = req.params;
 
   try {
-    const availability = await Availability.findOne({ dentistId });
+
+    const availability = await Availability.findOne({ dentist: dentistId });
 
     if (!availability) {
       res.status(404).json({ message: "Availability not found" });
@@ -130,8 +131,8 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
 
     res.status(200).json({ availability });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error fetching availability:", error);
+    res.status(500).json({ message: "Server error", error });
   }
 };
 
