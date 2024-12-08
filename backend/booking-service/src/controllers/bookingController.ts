@@ -5,10 +5,8 @@ import { MQTTHandler } from "../mqtt/MqttHandler";
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
-/**
- * Patient creates a booking (books a time slot)
- */
-//add clinic later. once successful u have to update patient with the booking info
+ // Patient creates a booking (books a time slot)
+//once successful u have to update patient, dentist with the booking info
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
   const { dentistId, patientEmail, timeSlot } = req.body;
 
@@ -16,7 +14,7 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     await mqttHandler.connect();
 
     // Validate required fields
-    if (!dentistId || !patientEmail  || !timeSlot?.start || !timeSlot?.end) {
+    if (!dentistId || !patientEmail || !timeSlot?.start || !timeSlot?.end) {
       res.status(400).json({ message: "Missing required fields" });
       return;
     }
@@ -69,15 +67,56 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
       return;
     }
 
+    // Publish dentistId directly to the topic to the clinic service
+    await mqttHandler.publish(
+      "pearl-fix/booking/find/clinic",
+      JSON.stringify({ dentistId })
+    );
+    console.log(`Published dentistId to "pearl-fix/booking/find/clinic":`, dentistId);
+
+    // Collect clinic data from the subscription (similar to how we did with patient data)
+    const clinic: any = await new Promise((resolve, reject) => {
+      let clinicData: any = null;
+      const timeout = setTimeout(() => {
+        if (clinicData) {
+          resolve(clinicData);
+        } else {
+          reject(new Error("No clinic received from MQTT subscription"));
+        }
+      }, 10000); // Adjust timeout as needed
+
+      mqttHandler.subscribe("pearl-fix/booking/clinic", (msg) => {
+        try {
+          const message = JSON.parse(msg.toString());
+          console.log("Message received on 'pearl-fix/booking/clinic':", message);
+
+          if (message.clinic) {
+            clinicData = message.clinic;
+            clearTimeout(timeout); // Clear timeout as we got the data
+            resolve(clinicData);
+          }
+        } catch (error) {
+          console.error("Error processing clinic message:", error);
+        }
+      });
+    });
+
+    if (!clinic?._id) {
+      res.status(404).json({ message: "Clinic not found from MQTT data." });
+      return;
+    }
+
+    const clinicIdFromMQTT = clinic._id;
+
     // Check if the time slot is available
-    const slot = availability.timeSlots.find(
+    const slotIndex = availability.timeSlots.findIndex(
       (slot) =>
         slot.start.toISOString() === new Date(timeSlot.start).toISOString() &&
         slot.end.toISOString() === new Date(timeSlot.end).toISOString() &&
         slot.status === "available"
     );
 
-    if (!slot) {
+    if (slotIndex === -1) {
       res.status(400).json({ message: "The selected time slot is unavailable." });
       return;
     }
@@ -86,16 +125,18 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     const booking = new Booking({
       dentistId,
       patientId: patientIdFromMQTT, // Use patient data from MQTT
+      clinicId: clinicIdFromMQTT,   // Use clinic data from MQTT
+      availabilityId: availability._id, // Add availabilityId reference
       timeSlot,
       status: "booked",
     });
 
     await booking.save();
 
-    // Update the time slot to "booked"
-    slot.status = "booked";
-    await availability.save();
-
+    // Update the status of the time slot to "booked"
+    availability.timeSlots[slotIndex].status = "booked";
+    await availability.save(); // Save the updated availability document
+    
     res.status(201).json({
       message: "Booking created successfully",
       booking,

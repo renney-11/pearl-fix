@@ -1,6 +1,5 @@
 import { RequestHandler } from "express";
 import Clinic from "../models/Clinic";
-import { IClinic } from "../models/Clinic";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 
 declare global {
@@ -43,6 +42,40 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         );
       }
     });
+
+    // Subscribe to the topic to receive dentistId
+    await mqttHandler.subscribe("pearl-fix/booking/find/clinic", async (msg) => {
+      console.log("Message received on 'pearl-fix/booking/find/clinic' topic:", msg || "No payload provided");
+    
+      try {
+        const { dentistId } = JSON.parse(msg.toString());
+        
+        if (!dentistId) {
+          console.error("Missing dentistId in the message");
+          return;
+        }
+
+        // Find clinic associated with the dentistId
+        const clinic = await Clinic.findOne({ dentists: { $in: [dentistId] } });
+        if (!clinic) {
+          console.error("No clinic found for the given dentistId:", dentistId);
+          return;
+        }
+
+        await mqttHandler.publish(
+          "pearl-fix/booking/clinic",
+          JSON.stringify({ clinic })
+        );
+        console.log("Clinic found and published successfully:", clinic);
+      } catch (error) {
+        console.error("Error fetching clinic by dentist:", error);
+        await mqttHandler.publish(
+          "pearl-fix/booking/clinic",
+          JSON.stringify({ error: "Error fetching clinic by dentist", details: error })
+        );
+      }
+    });
+
     mqttHandler.close;
   } catch (error) {
     console.error("Error connecting MQTT handler:", error);
