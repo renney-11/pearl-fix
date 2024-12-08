@@ -1,22 +1,69 @@
 import type { RequestHandler } from "express";
 import Availability from "../models/Availability";
 import Booking from "../models/Booking";
+import { MQTTHandler } from "../mqtt/MqttHandler";
+
+const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
 /**
  * Patient creates a booking (books a time slot)
  */
+//add clinic later. once successful u have to update patient with the booking info
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
-  const { dentistId, patientId, clinicId, timeSlot } = req.body;
+  const { dentistId, patientEmail, timeSlot } = req.body;
 
   try {
+    await mqttHandler.connect();
+
     // Validate required fields
-    if (!dentistId || !patientId || !clinicId || !timeSlot?.start || !timeSlot?.end) {
+    if (!dentistId || !patientEmail  || !timeSlot?.start || !timeSlot?.end) {
       res.status(400).json({ message: "Missing required fields" });
       return;
     }
 
+    // Publish patient email to the topic to retrieve patient data
+    await mqttHandler.publish(
+      "pearl-fix/booking/create/patient/email",
+      JSON.stringify({ email: patientEmail })
+    );
+    console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
+
+    // Collect patient data from the subscription
+    const receivedPatient: any = await new Promise((resolve, reject) => {
+      let patientData: any = null;
+      const timeout = setTimeout(() => {
+        if (patientData) {
+          resolve(patientData);
+        } else {
+          reject(new Error("No patient received from MQTT subscription"));
+        }
+      }, 10000); // Adjust timeout based on expected delays
+
+      mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
+        try {
+          const message = JSON.parse(msg.toString());
+          console.log("Message received on 'pearl-fix/booking/create/patient':", message);
+
+          if (message.patient) {
+            patientData = message.patient;
+            clearTimeout(timeout); // Clear timeout as we got the data
+            resolve(patientData);
+          }
+        } catch (error) {
+          console.error("Error processing patient message:", error);
+        }
+      });
+    });
+
+    if (!receivedPatient?._id) {
+      res.status(404).json({ message: "Patient not found from MQTT data." });
+      return;
+    }
+
+    const patientIdFromMQTT = receivedPatient._id;
+
     // Find dentist availability
-    const availability = await Availability.findOne({ dentistId });
+    const availability = await Availability.findOne({ dentist: dentistId });
     if (!availability) {
       res.status(404).json({ message: "Dentist availability not found" });
       return;
@@ -38,8 +85,7 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     // Create the booking
     const booking = new Booking({
       dentistId,
-      patientId,
-      clinicId,
+      patientId: patientIdFromMQTT, // Use patient data from MQTT
       timeSlot,
       status: "booked",
     });
@@ -54,8 +100,10 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
       message: "Booking created successfully",
       booking,
     });
+
+    mqttHandler.close();
   } catch (error) {
-    console.error(error);
+    console.error("Error creating booking:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

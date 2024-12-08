@@ -154,6 +154,50 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       }
     });
 
+    // Create booking with patient
+    await mqttHandler.subscribe("pearl-fix/booking/create/patient/email", async (msg) => {
+      try {
+        console.log("Message received from booking-service:", msg);
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(msg);
+        } catch (err) {
+          console.error("Failed to parse create booking message:", err);
+          return;
+        }
+
+        const { email } = parsedMessage;
+
+        if (!email) {
+          console.error("Missing patient email in create booking request");
+          await mqttHandler.publish(
+            "pearl-fix/booking/create/patient",
+            JSON.stringify({ message: "Missing email" })
+          );
+          return;
+        }
+        let patient: IPatient | null = await Patient.findOne({ email });
+        if (!patient) {
+          await mqttHandler.publish(
+            "pearl-fix/booking/create/patient",
+            JSON.stringify({ error: "Patient with this email does not exist." })
+          );
+          return;
+        }
+        await mqttHandler.publish(
+          "pearl-fix/booking/create/patient",
+          JSON.stringify({ patient })
+        );
+        console.log("Patient found successfully", patient);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("Error processing find patient message:", errorMessage);
+      }
+    });
+
+// may have to add:await mqttHandler.subscribe("pearl-fix/clinic/create/id", handleClinicCreateIdMessage);
+
+
     // Create clinic with dentist
     await mqttHandler.subscribe("pearl-fix/clinic/create/email", async (msg) => {
       try {
