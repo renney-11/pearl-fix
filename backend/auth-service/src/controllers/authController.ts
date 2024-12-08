@@ -194,9 +194,9 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         console.error("Error processing find patient message:", errorMessage);
       }
     });
+    await mqttHandler.subscribe("pearl-fix/booking/update/patient", handleBookingUpdatePatientMessage);
 
-// may have to add:await mqttHandler.subscribe("pearl-fix/clinic/create/id", handleClinicCreateIdMessage);
-
+    await mqttHandler.subscribe("pearl-fix/booking/update/dentist", handleBookingUpdateDentistMessage);
 
     // Create clinic with dentist
     await mqttHandler.subscribe("pearl-fix/clinic/create/email", async (msg) => {
@@ -336,6 +336,83 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
     console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);
   }
 })();
+
+    // Update the dentist's availability and bookings fields
+const handleBookingUpdateDentistMessage = async (msg: string): Promise<void> => {
+  try {
+    console.log("Message received on booking update dentist:", msg);
+
+    let parsedMessage;
+    try {
+      parsedMessage = JSON.parse(msg);
+    } catch (err) {
+      console.error("Failed to parse booking update message:", err);
+      return;
+    }
+
+    const { dentistId, availability, booking } = parsedMessage;
+
+    if (!dentistId || !availability?._id || !booking?._id) {
+      console.error("Missing dentist ID, availability ID, or booking ID in message");
+      return;
+    }
+
+    const updatedDentist = await Dentist.findOneAndUpdate(
+      { _id: dentistId },
+      {
+        $push: { bookings: booking._id },
+        $set: { availability: availability._id },
+      },
+      { new: true }
+    );
+
+    if (!updatedDentist) {
+      console.error(`Dentist with ID ${dentistId} not found`);
+    } else {
+      console.log(`Successfully updated dentist with booking and availability:`, updatedDentist);
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Error processing booking update dentist message:", errorMessage);
+  }
+};
+
+    // Update the patient's bookings field
+const handleBookingUpdatePatientMessage = async (msg: string): Promise<void> => {
+  try {
+    console.log("Message received on booking update patient:", msg);
+
+    let parsedMessage;
+    try {
+      parsedMessage = JSON.parse(msg);
+    } catch (err) {
+      console.error("Failed to parse booking update message:", err);
+      return;
+    }
+
+    const { patientId, booking } = parsedMessage;
+
+    if (!patientId || !booking?._id) {
+      console.error("Missing patient ID or booking ID in message");
+      return;
+    }
+
+    const updatedPatient = await Patient.findOneAndUpdate(
+      { _id: patientId },
+      { $push: { bookings: booking._id } },
+      { new: true }
+    );
+
+    if (!updatedPatient) {
+      console.error(`Patient with ID ${patientId} not found`);
+    } else {
+      console.log(`Successfully updated patient with booking:`, updatedPatient);
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Error processing booking update message:", errorMessage);
+  }
+};
 
 const handleClinicCreateIdMessage = async (msg: string): Promise<void> => {
   try {
