@@ -208,6 +208,37 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
     
     await mqttHandler.subscribe("pearl-fix/clinic/create/id", handleClinicCreateIdMessage);
 
+    await mqttHandler.subscribe("pearl-fix/availability/remove", async (msg) => {
+      try {
+        console.log("Message received for availability update:", msg);
+    
+        const parsedMessage = JSON.parse(msg);
+        const { dentistId, availabilityId } = parsedMessage;
+    
+        if (!dentistId) {
+          console.error("Missing dentistId in availability update message");
+          return;
+        }
+    
+        if (availabilityId === null) {
+          await Dentist.updateOne(
+            { _id: dentistId },
+            { $set: { availability: [] } } // Clear the availability array
+          );
+          console.log(`All availability references removed for dentist ${dentistId}`);
+        } else {
+          // Update dentist's availability field
+          await Dentist.updateOne(
+            { _id: dentistId },
+            { $addToSet: { availability: availabilityId } }
+          );
+          console.log(`Availability updated for dentist ${dentistId}`);
+        }
+      } catch (err) {
+        console.error("Error processing availability update message:", err);
+      }
+    });
+
     // Create availability with dentist
     await mqttHandler.subscribe("pearl-fix/availability/create/email", async (msg) => {
       try {

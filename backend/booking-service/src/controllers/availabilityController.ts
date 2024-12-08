@@ -135,11 +135,12 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
     res.status(500).json({ message: "Server error", error });
   }
 };
-
 export const removeAvailability: RequestHandler = async (req, res): Promise<void> => {
   const { dentistId, timeSlotId } = req.params;
 
   try {
+    await mqttHandler.connect();
+
     const availability = await Availability.findOne({ dentist: dentistId });
 
     if (!availability) {
@@ -147,24 +148,51 @@ export const removeAvailability: RequestHandler = async (req, res): Promise<void
       return;
     }
 
-    // Find the index of the time slot in the timeSlots array
-    const timeSlotIndex = availability.timeSlots.findIndex(
-      (slot) => slot._id.toString() === timeSlotId.toString()
-    );
+    if (timeSlotId) {
+      const timeSlotIndex = availability.timeSlots.findIndex(
+        (slot) => slot._id.toString() === timeSlotId.toString()
+      );
 
-    if (timeSlotIndex === -1) {
-      res.status(404).json({ message: "Time slot not found" });
+      if (timeSlotIndex === -1) {
+        res.status(404).json({ message: "Time slot not found" });
+        return;
+      }
+
+      availability.timeSlots.splice(timeSlotIndex, 1);
+
+      if (availability.timeSlots.length === 0) {
+        await availability.deleteOne();
+
+        await mqttHandler.publish(
+          "pearl-fix/availability/remove",
+          JSON.stringify({ dentistId, availabilityId: null })
+        );
+
+        res.status(200).json({ message: "Availability removed successfully" });
+        return;
+      }
+
+      await availability.save();
+    } else {
+      await availability.deleteOne();
+
+      await mqttHandler.publish(
+        "pearl-fix/availability/remove",
+        JSON.stringify({ dentistId, availabilityId: null })
+      );
+
+      res.status(200).json({ message: "Availability removed successfully" });
       return;
     }
 
-    // Remove the time slot from the array
-    availability.timeSlots.splice(timeSlotIndex, 1);
-
-    await availability.save();
+    await mqttHandler.publish(
+      "pearl-fix/availability/remove",
+      JSON.stringify({ dentistId, availabilityId: availability._id })
+    );
 
     res.status(200).json({ message: "Time slot removed successfully" });
   } catch (error) {
-    console.error("Error removing time slot:", error);
+    console.error("Error removing availability:", error);
     res.status(500).json({ message: "Server error", error });
   }
 };
