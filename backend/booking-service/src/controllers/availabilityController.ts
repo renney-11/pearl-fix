@@ -13,38 +13,28 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
   try {
     await mqttHandler.connect();
 
-    // Check if valid dentist emails are provided
-    if (!Array.isArray(dentist) || dentist.length === 0) {
+    // Check if a valid dentist email or ID is provided
+    if (!dentist || typeof dentist !== "string" || dentist.trim() === "") {
       console.error("No valid dentist provided.");
       res.status(400).json({ message: "No valid dentist provided in request." });
       return;
     }
 
-    // Publish dentists' emails to the topic
-    if (Array.isArray(dentist) && dentist.length > 0) {
-      for (const email of dentist) {
-        if (typeof email === "string" && email.trim() !== "") {
-          await mqttHandler.publish(
-            "pearl-fix/availability/create/email",
-            JSON.stringify({ email })
-          );
-          console.log(`Published successful message to "pearl-fix/availability/create/email": ${email}`);
-        } else {
-          console.error("Invalid email format in dentists array.");
-        }
-      }
-    } else {
-      console.error("No valid dentists provided.");
-    }
+    // Publish dentist email or ID to the topic
+    await mqttHandler.publish(
+      "pearl-fix/availability/create/email",
+      JSON.stringify({ email: dentist })
+    );
+    console.log(`Published successful message to "pearl-fix/availability/create/email": ${dentist}`);
 
     // Collect dentist data from the subscription
-    const receivedDentists: any[] = await new Promise((resolve, reject) => {
-      const dentistsData: any[] = [];
+    const receivedDentist: any = await new Promise((resolve, reject) => {
+      let dentistData: any = null;
       const timeout = setTimeout(() => {
-        if (dentistsData.length > 0) {
-          resolve(dentistsData);
+        if (dentistData) {
+          resolve(dentistData);
         } else {
-          reject(new Error("No dentists received from MQTT subscription"));
+          reject(new Error("No dentist received from MQTT subscription"));
         }
       }, 10000); // Adjust timeout based on expected delays
 
@@ -54,7 +44,9 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
           console.log("Message received on 'pearl-fix/availability/create/dentist':", message);
 
           if (message.dentist) {
-            dentistsData.push(message.dentist);
+            dentistData = message.dentist;
+            clearTimeout(timeout); // Clear timeout as we got the data
+            resolve(dentistData);
           }
         } catch (error) {
           console.error("Error processing dentist message:", error);
@@ -62,16 +54,28 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
       });
     });
 
-    const baseDate = new Date(date); // Use the provided date for the time slots
+    if (!receivedDentist?._id) {
+      res.status(404).json({ message: "Dentist not found from MQTT data." });
+      return;
+    }
+
+    const dentistId = receivedDentist._id;
+
+    // Use the provided date for time slots
+    const baseDate = new Date(date);
 
     // Convert timeSlots to proper Date objects with the correct date
     const formattedTimeSlots = timeSlots.map((slot: { start: string; end: string }) => {
-      const startTimeParts = slot.start.split(':');
-      const endTimeParts = slot.end.split(':');
+      const startTimeParts = slot.start.split(":");
+      const endTimeParts = slot.end.split(":");
 
       // Set the full date with start and end times
-      const startDate = new Date(baseDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0));
-      const endDate = new Date(baseDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0));
+      const startDate = new Date(
+        baseDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0)
+      );
+      const endDate = new Date(
+        baseDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0)
+      );
 
       return {
         start: startDate,
@@ -79,8 +83,6 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
         status: "available",
       };
     });
-
-    const dentistId = receivedDentists[0]._id;
 
     // Create availability document
     const availability = new Availability({
@@ -99,14 +101,13 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
         dentist: dentistId,
         workDays: availability.workDays,
         timeSlots: formattedTimeSlots,
-      }
+      },
     });
     console.log("Availability created:", availability);
 
-    // Publish the availability ID and associated dentist emails
     await mqttHandler.publish(
       "pearl-fix/availability/create/id",
-      JSON.stringify({ id: availability.id, emails: dentist })
+      JSON.stringify({ id: availability.id, email: dentist })
     );
     console.log(`Published availability ID: ${availability.id} to 'pearl-fix/availability/create/id'.`);
 

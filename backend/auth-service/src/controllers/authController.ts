@@ -344,26 +344,24 @@ const handleAvailabilityCreateIdMessage = async (msg: string): Promise<void> => 
       return;
     }
 
-    const { id: availabilityId, emails } = parsedMessage;
+    const { id: availabilityId, email } = parsedMessage;
 
-    if (!availabilityId || !Array.isArray(emails)) {
-      console.error("Missing availability ID or dentist emails in message");
+    if (!availabilityId || !email || typeof email !== "string") {
+      console.error("Missing availability ID or dentist email in message");
       return;
     }
 
-    // Update the dentist's availability field for each email
-    for (const email of emails) {
-      const updatedDentist = await Dentist.findOneAndUpdate(
-        { email }, // Find the dentist by email
-        { availability: availabilityId }, // Set the availability field to the availability ID
-        { new: true } // Return the updated document
-      );
+    // Update the dentist's availability field using the provided email
+    const updatedDentist = await Dentist.findOneAndUpdate(
+      { email }, // Find the dentist by email
+      { $push: { availability: availabilityId } }, // Add the availability ID to the availability array
+      { new: true } // Return the updated document
+    );
 
-      if (!updatedDentist) {
-        console.error(`Dentist with email ${email} not found`);
-      } else {
-        console.log(`Successfully updated dentist:`, updatedDentist);
-      }
+    if (!updatedDentist) {
+      console.error(`Dentist with email ${email} not found`);
+    } else {
+      console.log(`Successfully updated dentist:`, updatedDentist);
     }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
