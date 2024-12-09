@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import Availability from "../models/Availability";
 import Booking from "../models/Booking";
 import { MQTTHandler } from "../mqtt/MqttHandler";
+import mongoose from "mongoose";
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
@@ -158,29 +159,30 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
   }
 };
 
-// Patient cancels a booking
 export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<void> => {
   const { bookingId } = req.params;
+  const { patientId } = req.body;
 
   try {
-    // Find the booking
-    const booking = await Booking.findById(bookingId);
+
+    // Debugging Step: Find booking directly
+    const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
+
+    console.log("Found Booking:", booking);
     if (!booking) {
-      res.status(404).json({ message: "Booking not found" });
+      res.status(404).json({ message: "Booking not found." });
       return;
     }
 
-    // Ensure the booking belongs to the patient making the request
-    if (req.body.patientId !== booking.patientId) {
+    if (String(booking.patientId) !== String(patientId)) {
       res.status(403).json({ message: "You can only cancel your own bookings." });
       return;
     }
 
-    // Update the booking status
+    // Delete the booking
     await Booking.findByIdAndDelete(bookingId);
 
-    // Update the associated time slot to "available"
-    const availability = await Availability.findOne({ dentistId: booking.dentistId });
+    const availability = await Availability.findOne({ _id: booking.availabilityId });
     if (availability) {
       const slot = availability.timeSlots.find(
         (slot) =>
@@ -194,39 +196,38 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
       }
     }
 
-    res.status(200).json({
-      message: "Booking canceled successfully",
-    });
+    res.status(200).json({ message: "Booking canceled successfully." });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error in cancelBookingByPatient:", error);
+    res.status(500).json({ message: "Server error." });
   }
 };
-
 
 // Dentist cancels a booking
 export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<void> => {
   const { bookingId } = req.params;
+  const { dentistId } = req.body;
 
   try {
-    // Find the booking
-    const booking = await Booking.findById(bookingId);
+
+    // Debugging Step: Find booking directly
+    const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
+
+    console.log("Found Booking:", booking);
     if (!booking) {
-      res.status(404).json({ message: "Booking not found" });
+      res.status(404).json({ message: "Booking not found." });
       return;
     }
 
-    // Ensure the booking belongs to the dentist making the request
-    if (req.body.dentistId !== booking.dentistId) {
-      res.status(403).json({ message: "You can only cancel bookings for your own schedule." });
+    if (String(booking.dentistId) !== String(dentistId)) {
+      res.status(403).json({ message: "You can only cancel your own bookings." });
       return;
     }
 
-    // Update the booking status
+    // Delete the booking
     await Booking.findByIdAndDelete(bookingId);
 
-    // Update the associated time slot to "available"
-    const availability = await Availability.findOne({ dentistId: booking.dentistId });
+    const availability = await Availability.findOne({ _id: booking.availabilityId });
     if (availability) {
       const slot = availability.timeSlots.find(
         (slot) =>
@@ -240,11 +241,9 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
       }
     }
 
-    res.status(200).json({
-      message: "Booking canceled successfully",
-    });
+    res.status(200).json({ message: "Booking canceled successfully." });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error in cancelBookingByPatient:", error);
+    res.status(500).json({ message: "Server error." });
   }
 };
