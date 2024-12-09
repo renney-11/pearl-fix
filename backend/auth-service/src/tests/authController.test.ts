@@ -8,7 +8,7 @@ import Patient from '../models/Patient';
 // Load environment variables from .env file
 dotenv.config();
 
-jest.mock('../../../mqtt/MqttHandler', () => {
+jest.mock('../mqtt/MqttHandler', () => {
   return {
     MQTTHandler: jest.fn().mockImplementation(() => {
       return {
