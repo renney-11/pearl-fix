@@ -159,13 +159,14 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
   }
 };
 
+// Patient cancels booking
 export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<void> => {
   const { bookingId } = req.params;
   const { patientId } = req.body;
 
   try {
-
-    // Debugging Step: Find booking directly
+    await mqttHandler.connect();
+    // Find booking by ID
     const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
 
     console.log("Found Booking:", booking);
@@ -196,6 +197,35 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
       }
     }
 
+    await mqttHandler.publish(
+      "pearl-fix/booking/update/dentist",
+      JSON.stringify({
+        dentistId: booking.dentistId,
+        availability: {
+          _id: booking.availabilityId
+        },
+        booking: {
+          _id: booking._id
+        }
+      })
+    );
+    console.log(`Published dentist, availability, and canceled booking to "pearl-fix/booking/update/dentist"`);
+
+
+    await mqttHandler.publish(
+      "pearl-fix/booking/update/patient",
+      JSON.stringify({
+        patientId: booking.patientId,
+        booking: {
+          _id: booking._id
+        }
+      })
+    );
+    console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
+
+    mqttHandler.close();
+
+    // Respond with success
     res.status(200).json({ message: "Booking canceled successfully." });
   } catch (error) {
     console.error("Error in cancelBookingByPatient:", error);
@@ -209,8 +239,8 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
   const { dentistId } = req.body;
 
   try {
+    await mqttHandler.connect();
 
-    // Debugging Step: Find booking directly
     const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
 
     console.log("Found Booking:", booking);
@@ -242,6 +272,34 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
     }
 
     res.status(200).json({ message: "Booking canceled successfully." });
+
+    await mqttHandler.publish(
+      "pearl-fix/booking/update/dentist",
+      JSON.stringify({
+        dentistId: booking.dentistId,
+        availability: {
+          _id: booking.availabilityId
+        },
+        booking: {
+          _id: booking._id
+        }
+      })
+    );
+    console.log(`Published dentist, availability, and canceled booking to "pearl-fix/booking/update/dentist"`);
+
+
+    await mqttHandler.publish(
+      "pearl-fix/booking/update/patient",
+      JSON.stringify({
+        patientId: booking.patientId,
+        booking: {
+          _id: booking._id
+        }
+      })
+    );
+    console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
+
+    mqttHandler.close();
   } catch (error) {
     console.error("Error in cancelBookingByPatient:", error);
     res.status(500).json({ message: "Server error." });
