@@ -1,23 +1,15 @@
 import { Router } from "express";
 import {
   createBooking,
-  getAllBookings,
-  getBookingById,
-  updateBookingStatus,
+  cancelBookingByPatient,
+  cancelBookingByDentist
 } from "../controllers/bookingController";
 
 const router = Router();
 
 // Create a new booking
 router.route("/create").post(createBooking);
-
-// Get all bookings
-router.route("/").get(getAllBookings);
-
-// Get a single booking by ID
-router.route("/:id").get(getBookingById);
-
-// Update booking status (e.g., mark as booked, cancelled)
-router.route("/:id/status").patch(updateBookingStatus);
+router.route("/patient-cancel-booking/:bookingId").delete(cancelBookingByPatient);
+router.route("/dentist-cancel-booking/:bookingId").delete(cancelBookingByDentist);
 
 export default router;

@@ -1,13 +1,14 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITimeSlot {
+  _id: mongoose.Types.ObjectId;
   start: Date;
   end: Date;
   status: "available" | "booked";
 }
 
 export interface IAvailability extends Document {
-  dentistId: mongoose.Types.ObjectId; // Reference to the Dentist
+  dentist: mongoose.Types.ObjectId; // Reference to the Dentist
   workDays: string[];
   timeSlots: ITimeSlot[];
 }
@@ -20,7 +21,7 @@ const TimeSlotSchema: Schema = new Schema({
 
 const AvailabilitySchema: Schema = new Schema(
   {
-    dentistId: { type: mongoose.Schema.Types.ObjectId, ref: "Dentist", required: true },
+    dentist: { type: mongoose.Schema.Types.ObjectId, ref: "Dentist", required: true },
     workDays: {
       type: [String],
       enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
