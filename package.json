@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "@next/font": "^14.2.15",
+    "dayjs": "^1.11.13",
     "leaflet": "^1.9.4",
+    "leaflet-routing-machine": "^3.2.12",
     "mqtt": "^5.10.2",
     "react-leaflet": "^4.2.1"
   }
