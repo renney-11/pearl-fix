@@ -115,6 +115,8 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
   } catch (error) {
     console.error("Error creating availability:", error);
     res.status(500).json({ message: "Server error." });
+  } finally {
+    mqttHandler.close();
   }
 };
 
@@ -195,5 +197,8 @@ export const removeAvailability: RequestHandler = async (req, res): Promise<void
   } catch (error) {
     console.error("Error removing availability:", error);
     res.status(500).json({ message: "Server error", error });
+  } finally {
+    mqttHandler.close();
   }
+  
 };

@@ -335,6 +335,19 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
   } catch (error) {
     console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);
   }
+
+  // for closing mqtt on ctrl+c in terminal
+  process.on('SIGINT', async () => {
+    try {
+      console.log("SIGINT received, closing MQTTHandler connection.");
+      await mqttHandler.close();
+      process.exit(0);
+    } catch (error) {
+      console.error("Error closing MQTTHandler connection:", error);
+      process.exit(1);
+    }
+  });
+  
 })();
 
     // Update the dentist's availability and bookings fields
