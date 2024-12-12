@@ -84,8 +84,13 @@ export default function Appointment() {
 
       if (unavailableDays.includes(dateKey)) {
         dayElement.classList.add("text-gray-300", "cursor-not-allowed");
-        dayElement.removeEventListener("click", () => handleDateSelection(currentDate));
-      }
+        dayElement.removeEventListener("click", () => handleDateSelection(currentDate)); // Disable click
+    }
+    
+    // Red for unavailable days
+    if (unavailableDays.includes(dateKey)) {
+        dayElement.classList.add("bg-red-100", "text-red-700");
+    }
 
       if (isPastDate || isBeyondYear) {
         dayElement.addEventListener("click", () => handleBlockedDateSelection());
@@ -244,7 +249,7 @@ export default function Appointment() {
 
             {isModalOpen && (
               <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white p-6 rounded-lg shadow-lg relative">
+                <div className="bg-white-blue p-6 rounded-lg shadow-lg relative">
                   <button
                     onClick={handleCloseModal}
                     className="absolute top-2 right-2 text-xl text-gray-500 hover:text-gray-800"
@@ -297,7 +302,7 @@ export default function Appointment() {
                           </button>
                         )}
                         <button
-                          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-700"
+                          className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-900"
                           onClick={handleSaveSlots}
                         >
                           Save
