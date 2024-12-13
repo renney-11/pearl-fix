@@ -38,7 +38,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           console.error("Failed to parse message:", err);
           await mqttHandler.publish(
             "pearl-fix/authentication/authenticate",
-            JSON.stringify({ message: "Invalid message format" })
+            JSON.stringify({ error: "Invalid message format" })
           );
           return;
         }
@@ -65,7 +65,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         if (existingPatient) {
           await mqttHandler.publish(
             "pearl-fix/authentication/authenticate",
-            JSON.stringify({ message: "Patient already exists" })
+            JSON.stringify({ error: "Patient already exists" })
           );
           console.log("Patient already exists:", email);
           return;
