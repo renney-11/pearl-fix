@@ -1,5 +1,5 @@
 {
-  "name": "auth-service",
+  "name": "booking-service",
   "version": "1.0.0",
   "main": "jest.config.js",
   "directories": {
@@ -9,13 +9,14 @@
     "dev": "nodemon --watch './src' --exec npx ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "cross-env MONGODB_URI=mongodb://localhost:27017/tooth-beacon CLOUDAMQP_URL=amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx jest"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "amqplib": "^0.10.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -27,9 +28,15 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^22.9.0",
+    "@types/supertest": "^6.0.2",
+    "cross-env": "^7.0.3",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.7",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   }
