@@ -8,7 +8,7 @@ import { MQTTHandler } from "../mqtt/MqttHandler";
 config();
 
 // Mock the MQTTHandler
-jest.mock("../mqtt/MQTTHandler");
+jest.mock("../mqtt/MqttHandler");
 
 describe("ClinicController", () => {
   let mqttHandlerMock: jest.Mocked<MQTTHandler>;

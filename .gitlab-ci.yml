@@ -1,6 +1,3 @@
-variables:
-
-# Define stages for the pipeline
 stages:
   - auth-service-install_dependencies
   - auth-service-run_tests
@@ -8,75 +5,64 @@ stages:
   - booking-service-run_tests
   - clinic-service-install_dependencies
   - clinic-service-run_tests
+
 cache:
   paths:
     - node_modules # Cache node_modules to speed up subsequent jobs
 
-install_dependencies_job:
+install_dependencies_job_auth:
   stage: auth-service-install_dependencies
-  image: node:16 # Use an official Node.js image to install dependencies
+  image: node:16
   tags:
     - docker
   script:
-    # Navigate to the backend/auth-service directory and install dependencies
-    - cd backend/auth-service # Change directory to your auth-service
-    - npm install # Install dependencies
-  except:
-    - tags # Exclude this job from running when triggered by tags (optional)
+    - cd backend/auth-service
+    - npm install
 
-install_dependencies_job:
+install_dependencies_job_booking:
   stage: booking-service-install_dependencies
-  image: node:16 # Use an official Node.js image to install dependencies
+  image: node:16
   tags:
     - docker
   script:
-    # Navigate to the backend/booking-service directory and install dependencies
-    - cd backend/booking-service # Change directory to your auth-service
-    - npm install # Install dependencies
-  except:
-    - tags # Exclude this job from running when triggered by tags (optional)
+    - cd backend/booking-service
+    - npm install
 
-install_dependencies_job:
+install_dependencies_job_clinic:
   stage: clinic-service-install_dependencies
-  image: node:16 # Use an official Node.js image to install dependencies
+  image: node:16
   tags:
     - docker
   script:
-    # Navigate to the backend/clinic-service directory and install dependencies
-    - cd backend/clinic-service # Change directory to your auth-service
-    - npm install # Install dependencies
-  except:
-    - tags # Exclude this job from running when triggered by tags (optional)
+    - cd backend/clinic-service
+    - npm install
 
-run_tests_job:
+run_tests_job_auth:
   stage: auth-service-run_tests
-  image: node:16 # Use the same Node.js image to run Jest tests
+  image: node:16
   tags:
     - docker
   script:
-    # Navigate to the auth-service directory and run the tests using Jest
-    - cd backend/auth-service # Change directory to the auth-service
-    - npm install # Install dependencies (if not cached)
-    - npm run test # Run Jest tests (ensure Jest is configured in package.json)
+    - cd backend/auth-service
+    - npm install
+    - npm run test
 
-run_tests_job:
+run_tests_job_booking:
   stage: booking-service-run_tests
-  image: node:16 # Use the same Node.js image to run Jest tests
+  image: node:16
   tags:
     - docker
   script:
-    # Navigate to the booking-service directory and run the tests using Jest
-    - cd backend/booking-service # Change directory to the booking-service
-    - npm install # Install dependencies (if not cached)
-    - npm run test # Run Jest tests (ensure Jest is configured in package.json)
+    - cd backend/booking-service
+    - npm install
+    - npm run test
 
-run_tests_job:
+run_tests_job_clinic:
   stage: clinic-service-run_tests
-  image: node:16 # Use the same Node.js image to run Jest tests
+  image: node:16
   tags:
     - docker
   script:
-    # Navigate to the clinic-service directory and run the tests using Jest
-    - cd backend/clinic-service # Change directory to the clinic-service
-    - npm install # Install dependencies (if not cached)
-    - npm run test # Run Jest tests (ensure Jest is configured in package.json)
+    - cd backend/clinic-service
+    - npm install
+    - npm run test
