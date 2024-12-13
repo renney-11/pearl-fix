@@ -1,5 +1,31 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import amqp from "amqplib";
+import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
+
+let connection: Connection | null = null;
+let channel: Channel | null = null;
+
+async function connectRabbitMQ() {
+  if (!connection) {
+    connection = await amqp.connect(
+      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
+    );
+  }
+  if (!channel) {
+    channel = await connection.createChannel();
+  }
+  return { connection, channel };
+}
+
+async function setupQueue(queueName: string) {
+  if (!channel) throw new Error("Channel is not initialized");
+  await channel.assertQueue(queueName, { durable: true });
+}
+
+async function consumeQueue(queueName: string, callback: (msg: ConsumeMessage | null) => void) {
+  if (!channel) throw new Error("Channel is not initialized");
+  await setupQueue(queueName);
+  channel.consume(queueName, callback, { noAck: false });
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -9,60 +35,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { email, password } = req.body;
 
   try {
-    // Connect to RabbitMQ
-    const connection = await amqp.connect(
-      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-    );
-    const channel = await connection.createChannel();
-
-    // Ensure the queue exists
+    const { connection, channel } = await connectRabbitMQ();
     const loginQueue = "pearl-fix/authentication/login";
-    await channel.assertQueue(loginQueue, { durable: true });
+    const authenticateQueue = "pearl-fix/authentication/authenticate";
 
-    const payload = {
-      email,
-      password,
-    };
+    // Publish login data
+    const payload = { email, password };
+    await setupQueue(loginQueue);
     channel.sendToQueue(loginQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
     console.log("Message published:", payload);
 
-    const authenticateQueue = "pearl-fix/authentication/authenticate";
-    await channel.assertQueue(authenticateQueue, { durable: true });
+    // Consume the authentication queue
+    console.log("Listening for token on authenticate queue...");
+    await setupQueue(authenticateQueue);
 
-    console.log("Waiting for token...");
-    const token = await new Promise<string | null>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        channel.close();
-        connection.close();
-        reject("Timeout waiting for token.");
-      }, 10000); // Wait up to 10 seconds
+    let tokenReceived = false;
+    const timeout = setTimeout(() => {
+      if (!tokenReceived) {
+        console.error("Timeout waiting for token.");
+        res.status(500).json({ error: "Failed to receive token." });
+        channel?.close();
+        connection?.close();
+      }
+    }, 10000); // 10 seconds timeout
 
-      channel.consume(
-        authenticateQueue,
-        (msg) => {
-          if (msg !== null) {
-            const message = JSON.parse(msg.content.toString());
-            channel.ack(msg);
-            clearTimeout(timeout);
-            channel.close();
-            connection.close();
-            resolve(message.token || null);
-          }
-        },
-        { noAck: false }
-      );
+    await consumeQueue(authenticateQueue, (msg) => {
+      if (msg) {
+        const message = JSON.parse(msg.content.toString());
+        if (message.token) {
+          console.log("Token received:", message.token);
+          tokenReceived = true;
+          clearTimeout(timeout); // Clear timeout
+          channel.ack(msg); // Acknowledge the message
+          res.status(200).json({ token: message.token });
+          channel.close();
+          connection.close();
+        }
+      }
     });
-
-    if (!token) {
-      return res.status(500).json({ error: "Failed to receive token." });
-    }
-
-    // Respond with the token
-    res.status(200).json({ token });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error." });
+    if (channel) await channel.close();
+    if (connection) await connection.close();
   }
 }

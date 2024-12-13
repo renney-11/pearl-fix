@@ -21,6 +21,16 @@ async function setupQueue(queueName: string) {
   await channel.assertQueue(queueName, { durable: true });
 }
 
+async function purgeQueue(queueName: string) {
+  if (!channel) throw new Error("Channel is not initialized");
+  try {
+    await channel.purgeQueue(queueName);
+    console.log(`Purged all messages from queue: ${queueName}`);
+  } catch (err) {
+    console.error(`Error purging queue ${queueName}:`, err);
+  }
+}
+
 async function consumeQueue(queueName: string, callback: (msg: ConsumeMessage | null) => void) {
   if (!channel) throw new Error("Channel is not initialized");
   await setupQueue(queueName);
@@ -32,17 +42,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name, email, password } = req.body;
+  const { email, password } = req.body;
 
   try {
     const { connection, channel } = await connectRabbitMQ();
-    const registerQueue = "pearl-fix/authentication/register";
-    const authenticateQueue = "pearl-fix/authentication/authenticate";
+    const loginQueue = "pearl-fix/authentication/dentist/login";
+    const authenticateQueue = "pearl-fix/authentication/dentist/authenticate";
 
-    // Publish signup data
-    const payload = { name, email, password };
-    await channel.assertQueue(registerQueue, { durable: true });
-    channel.sendToQueue(registerQueue, Buffer.from(JSON.stringify(payload)), {
+    // Publish login data
+    const payload = { email, password };
+    await setupQueue(loginQueue);
+    channel.sendToQueue(loginQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
     console.log("Message published:", payload);
@@ -52,33 +62,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await setupQueue(authenticateQueue);
 
     let tokenReceived = false;
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       if (!tokenReceived) {
         console.error("Timeout waiting for token.");
         res.status(500).json({ error: "Failed to receive token." });
-        channel?.close();
-        connection?.close();
+        await cleanupResources(authenticateQueue);
       }
-    }, 10000); // 10 seconds
+    }, 10000); // 10 seconds timeout
 
-    await consumeQueue(authenticateQueue, (msg) => {
+    await consumeQueue(authenticateQueue, async (msg) => {
       if (msg) {
         const message = JSON.parse(msg.content.toString());
         if (message.token) {
           console.log("Token received:", message.token);
           tokenReceived = true;
-          clearTimeout(timeout);
-          channel.ack(msg);
+          clearTimeout(timeout); // Clear timeout
+          channel.ack(msg); // Acknowledge the message
+          
+          // Purge remaining messages
+          await purgeQueue(authenticateQueue);
+
           res.status(200).json({ token: message.token });
-          channel.close();
-          connection.close();
+          await cleanupResources(authenticateQueue);
         }
       }
     });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error." });
-    if (channel) await channel.close();
-    if (connection) await connection.close();
+    await cleanupResources();
+  }
+}
+
+async function cleanupResources(authenticateQueue?: string) {
+  try {
+    if (authenticateQueue) {
+      await purgeQueue(authenticateQueue); // Ensure queue is cleaned even on error
+    }
+    if (channel) {
+      await channel.close();
+      channel = null;
+    }
+    if (connection) {
+      await connection.close();
+      connection = null;
+    }
+    console.log("RabbitMQ resources cleaned up.");
+  } catch (err) {
+    console.error("Error during RabbitMQ cleanup:", err);
   }
 }

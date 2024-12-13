@@ -38,7 +38,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           console.error("Failed to parse message:", err);
           await mqttHandler.publish(
             "pearl-fix/authentication/authenticate",
-            JSON.stringify({ message: "Invalid message format" })
+            JSON.stringify({ error: "Invalid message format" })
           );
           return;
         }
@@ -65,7 +65,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         if (existingPatient) {
           await mqttHandler.publish(
             "pearl-fix/authentication/authenticate",
-            JSON.stringify({ message: "Patient already exists" })
+            JSON.stringify({ error: "Patient already exists" })
           );
           console.log("Patient already exists:", email);
           return;
@@ -120,15 +120,9 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           return;
         }
 
-        let user: IPatient | IDentist | null = await Patient.findOne({ email });
-        let userType: "patient" | "dentist" = "patient";
+        const patient = await Patient.findOne({ email });
 
-        if (!user) {
-          user = await Dentist.findOne({ email });
-          userType = "dentist";
-        }
-
-        if (!user || !(await bcrypt.compare(password, user.password))) {
+        if (!patient || !(await bcrypt.compare(password, patient.password))) {
           console.error("Invalid credentials for email:", email);
           await mqttHandler.publish(
             "pearl-fix/authentication/authenticate",
@@ -137,7 +131,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           return;
         }
 
-        const token = await generateToken({ id: user.id, type: userType });
+        const token = await generateToken({ id: patient.id, type: "patient" });
         await mqttHandler.publish(
           "pearl-fix/authentication/authenticate",
           JSON.stringify({ token })
@@ -149,6 +143,62 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
         await mqttHandler.publish(
           "pearl-fix/authentication/authenticate",
+          JSON.stringify({ message: "Error during login", error: errorMessage })
+        );
+      }
+    });
+
+    // login method for dentists only
+    await mqttHandler.subscribe("pearl-fix/authentication/dentist/login", async (msg) => {
+      try {
+        console.log("Message received on login:", msg);
+
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(msg);
+        } catch (err) {
+          console.error("Failed to parse login message:", err);
+          await mqttHandler.publish(
+            "pearl-fix/authentication/dentist/authenticate",
+            JSON.stringify({ message: "Invalid message format" })
+          );
+          return;
+        }
+
+        const { email, password } = parsedMessage;
+
+        if (!email || !password) {
+          console.error("Missing email or password in login request");
+          await mqttHandler.publish(
+            "pearl-fix/authentication/dentist/authenticate",
+            JSON.stringify({ message: "Missing email or password" })
+          );
+          return;
+        }
+
+        const dentist = await Dentist.findOne({ email });
+
+        if (!dentist || !(await bcrypt.compare(password, dentist.password))) {
+          console.error("Invalid credentials for email:", email);
+          await mqttHandler.publish(
+            "pearl-fix/authentication/dentist/authenticate",
+            JSON.stringify({ message: "Invalid credentials" })
+          );
+          return;
+        }
+
+        const token = await generateToken({ id: dentist.id, type: "dentist" });
+        await mqttHandler.publish(
+          "pearl-fix/authentication/dentist/authenticate",
+          JSON.stringify({ token })
+        );
+        console.log("Login successful and token published for email:", email);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.error("Error processing login message:", errorMessage);
+
+        await mqttHandler.publish(
+          "pearl-fix/authentication/dentist/authenticate",
           JSON.stringify({ message: "Error during login", error: errorMessage })
         );
       }
@@ -335,6 +385,19 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
   } catch (error) {
     console.error("Failed to connect or initialize RabbitMQ subscriptions:", error);
   }
+
+  // for closing mqtt on ctrl+c in terminal
+  process.on('SIGINT', async () => {
+    try {
+      console.log("SIGINT received, closing MQTTHandler connection.");
+      await mqttHandler.close();
+      process.exit(0);
+    } catch (error) {
+      console.error("Error closing MQTTHandler connection:", error);
+      process.exit(1);
+    }
+  });
+  
 })();
 
     // Update the dentist's availability and bookings fields

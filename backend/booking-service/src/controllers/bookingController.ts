@@ -152,10 +152,11 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     );
     console.log(`Published patient and booking to "pearl-fix/booking/update/patient"`);
 
-    mqttHandler.close();
   } catch (error) {
     console.error("Error creating booking:", error);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    mqttHandler.close();
   }
 };
 
@@ -223,13 +224,13 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
     );
     console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
 
-    mqttHandler.close();
-
     // Respond with success
     res.status(200).json({ message: "Booking canceled successfully." });
   } catch (error) {
     console.error("Error in cancelBookingByPatient:", error);
     res.status(500).json({ message: "Server error." });
+  } finally {
+    mqttHandler.close();
   }
 };
 
@@ -299,9 +300,10 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
     );
     console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
 
-    mqttHandler.close();
   } catch (error) {
     console.error("Error in cancelBookingByPatient:", error);
     res.status(500).json({ message: "Server error." });
+  } finally {
+    mqttHandler.close();
   }
 };

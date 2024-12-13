@@ -168,18 +168,26 @@ export default function Appointment() {
         [dateKey]: availableSlots
       }));
 
-      try {
-        await fetch("/api/dentistAvailability", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            date: dateKey,
-            availableSlots,
-            unavailableSlots: allSlots.filter(slot => !availableSlots.includes(slot)),
-          }),
-        });
+      const token = localStorage.getItem("authToken"); // Retrieve the token from localStorage
+
+    if (!token) {
+      console.error("No token found. Please log in again.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/dentistAvailability", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // Include token in the header
+        },
+        body: JSON.stringify({
+          date: dateKey,
+          availableSlots,
+          unavailableSlots: allSlots.filter((slot) => !availableSlots.includes(slot)),
+        }),
+      });
       } catch (error) {
         console.error("Failed to save availability:", error);
       }

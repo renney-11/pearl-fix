@@ -76,9 +76,15 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       }
     });
 
-    mqttHandler.close;
   } catch (error) {
     console.error("Error connecting MQTT handler:", error);
+  } finally {
+    // close the broker connection when the application is shut down, ctrl+c
+    process.on("SIGINT", async () => {
+      await mqttHandler.close();
+      console.log("MQTT connection closed.");
+      process.exit(0);
+    });
   }
 })();
 
@@ -174,11 +180,11 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
     );
     console.log(`Published successful message to "pearl-fix/clinic/create/id": ${newClinic.id} with emails: ${dentists}`);
     
-
-    mqttHandler.close();
   } catch (error) {
     console.error("Error during clinic creation:", error);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    await mqttHandler.close();
   }
 };
 
