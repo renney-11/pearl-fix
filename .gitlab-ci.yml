@@ -8,7 +8,7 @@ stages:
 
 cache:
   paths:
-    - node_modules # Cache node_modules to speed up subsequent jobs
+    - node_modules  # Cache node_modules to speed up subsequent jobs
 
 install_dependencies_job_auth:
   stage: auth-service-install_dependencies
