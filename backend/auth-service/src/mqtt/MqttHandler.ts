@@ -16,8 +16,9 @@ export class MQTTHandler {
     if (!this.channel) {
       throw new Error("Channel is not initialized");
     }
-    await this.channel.assertQueue(queue, { durable: true });
-    this.channel.sendToQueue(queue, Buffer.from(message));
+
+    await this.channel.assertQueue(queue, { durable: true });  // Ensuring the queue exists
+    await this.channel.sendToQueue(queue, Buffer.from(message));  // Awaiting sendToQueue
     console.log(`Published message to "${queue}": ${message}`);
   }
 
@@ -25,12 +26,13 @@ export class MQTTHandler {
     if (!this.channel) {
       throw new Error("Channel is not initialized");
     }
-    await this.channel.assertQueue(queue, { durable: true });
-    this.channel.consume(queue, (msg) => {
+
+    await this.channel.assertQueue(queue, { durable: true });  // Ensuring the queue exists
+    await this.channel.consume(queue, (msg) => {
       if (msg) {
         const content = msg.content.toString();
         callback(content);
-        this.channel.ack(msg);
+        this.channel.ack(msg);  // Acknowledge the message
       }
     });
     console.log(`Subscribed to queue "${queue}"`);
