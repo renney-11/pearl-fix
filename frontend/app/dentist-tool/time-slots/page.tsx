@@ -23,7 +23,7 @@ export default function Appointment() {
 
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
-  }, [currentYear, currentMonth, unavailableDays]);
+  }, [currentYear, currentMonth, unavailableDays, dateAvailability]);
 
   const generateCalendar = (year: number, month: number) => {
     const calendarElement = document.getElementById("calendar");
@@ -34,13 +34,9 @@ export default function Appointment() {
     if (!calendarElement || !currentMonthElement || !prevButton || !nextButton) return;
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to midnight to ignore the time component
+    today.setHours(0, 0, 0, 0);
     const firstDayOfMonth = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const lastDayOfSelection = new Date(today);
-    lastDayOfSelection.setFullYear(today.getFullYear() + 1);
-    lastDayOfSelection.setDate(today.getDate() - 1); // Set to the day before 1 year later
 
     calendarElement.innerHTML = "";
     const monthNames = [
@@ -74,48 +70,33 @@ export default function Appointment() {
       dayElement.innerText = String(day);
 
       const isPastDate = currentDate < today;
-      const isBeyondYear = currentDate > lastDayOfSelection;
 
-      if (isPastDate || isBeyondYear) {
-        dayElement.classList.add("text-gray-300");
-        dayElement.classList.add("cursor-not-allowed");
-        dayElement.setAttribute("disabled", "true");
+      if (isPastDate) {
+        dayElement.classList.add("text-gray-300", "cursor-not-allowed");
       }
 
       if (unavailableDays.includes(dateKey)) {
-        dayElement.classList.add("text-gray-300", "cursor-not-allowed");
-        dayElement.removeEventListener("click", () => handleDateSelection(currentDate)); // Disable click
-    }
-    
-    // Red for unavailable days
-    if (unavailableDays.includes(dateKey)) {
         dayElement.classList.add("bg-red-100", "text-red-700");
-    }
+      }
 
-      if (isPastDate || isBeyondYear) {
-        dayElement.addEventListener("click", () => handleBlockedDateSelection());
-      } else {
+      if (dateAvailability[dateKey]) {
+        const availableCount = dateAvailability[dateKey].length;
+        if (availableCount === allSlots.length) {
+          dayElement.classList.add("bg-green-100", "text-green-700");
+        } else if (availableCount > 0) {
+          dayElement.classList.add("bg-orange-100", "text-orange-700");
+        }
+      }
+
+      if (!isPastDate) {
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       }
 
       calendarElement.appendChild(dayElement);
     }
 
-    if (year === today.getFullYear() && month === today.getMonth()) {
-      prevButton.disabled = true;
-      prevButton.classList.add("opacity-0");
-    } else {
-      prevButton.disabled = false;
-      prevButton.classList.remove("opacity-0");
-    }
-
-    if (year === today.getFullYear() + 1 && month === 11) {
-      nextButton.disabled = true;
-      nextButton.classList.add("opacity-0");
-    } else {
-      nextButton.disabled = false;
-      nextButton.classList.remove("opacity-0");
-    }
+    prevButton.disabled = year === today.getFullYear() && month === today.getMonth();
+    nextButton.disabled = year === today.getFullYear() + 1 && month === 11;
   };
 
   const handleDateSelection = (date: Date) => {
@@ -140,10 +121,9 @@ export default function Appointment() {
 
   const getAvailableSlotsForDay = (date: Date) => {
     const today = new Date();
-    const selectedDate = date;
     const availableSlotsForDay = [...allSlots];
 
-    if (selectedDate.getDate() === today.getDate() && selectedDate.getMonth() === today.getMonth()) {
+    if (date.toDateString() === today.toDateString()) {
       const currentHour = today.getHours();
       return availableSlotsForDay.filter((slot) => {
         const slotHour = parseInt(slot.split(":")[0]);
@@ -180,17 +160,29 @@ export default function Appointment() {
     setIsDayUnavailable(false);
   };
 
-  const handleSaveSlots = () => {
+  const handleSaveSlots = async () => {
     if (selectedDate) {
       const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
       setDateAvailability((prev) => ({
         ...prev,
         [dateKey]: availableSlots
       }));
-    }
 
-    if (availableSlots.length === 0) {
-      handleMarkDayUnavailable();
+      try {
+        await fetch("/api/dentistAvailability", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            date: dateKey,
+            availableSlots,
+            unavailableSlots: allSlots.filter(slot => !availableSlots.includes(slot)),
+          }),
+        });
+      } catch (error) {
+        console.error("Failed to save availability:", error);
+      }
     }
 
     setIsModalOpen(false);
