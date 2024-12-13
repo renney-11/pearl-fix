@@ -1,0 +1,68 @@
+stages:
+  - auth-service-install_dependencies
+  - auth-service-run_tests
+  - booking-service-install_dependencies
+  - booking-service-run_tests
+  - clinic-service-install_dependencies
+  - clinic-service-run_tests
+
+cache:
+  paths:
+    - node_modules  # Cache node_modules to speed up subsequent jobs
+
+install_dependencies_job_auth:
+  stage: auth-service-install_dependencies
+  image: node:16
+  tags:
+    - docker
+  script:
+    - cd backend/auth-service
+    - npm install
+
+install_dependencies_job_booking:
+  stage: booking-service-install_dependencies
+  image: node:16
+  tags:
+    - docker
+  script:
+    - cd backend/booking-service
+    - npm install
+
+install_dependencies_job_clinic:
+  stage: clinic-service-install_dependencies
+  image: node:16
+  tags:
+    - docker
+  script:
+    - cd backend/clinic-service
+    - npm install
+
+run_tests_job_auth:
+  stage: auth-service-run_tests
+  image: node:16
+  tags:
+    - docker
+  script:
+    - cd backend/auth-service
+    - npm install
+    - npm run test
+
+run_tests_job_booking:
+  stage: booking-service-run_tests
+  image: node:16
+  tags:
+    - docker
+  script:
+    - cd backend/booking-service
+    - npm install
+    - npm run test
+
+run_tests_job_clinic:
+  stage: clinic-service-run_tests
+  image: node:16
+  tags:
+    - docker
+  script:
+    - cd backend/clinic-service
+    - npm install
+    - npm run test

@@ -10,7 +10,7 @@ console.log('MongoDB URI:', MONGODB_URI);  // Should print the actual URI if loa
 const dbConnect = async () => {
   try {
     if (!MONGODB_URI) {
-      console.error('MongoDB URI is missing!');
+      console.warn("MongoDB URI is not set. Skipping database connection.");
       return;
     }
 
