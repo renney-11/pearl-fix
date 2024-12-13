@@ -22,8 +22,6 @@ app.use(
   })
 );
 
-// Handle preflight requests
-app.options("*", cors()); // Respond to all OPTIONS requests
 
 // Connect to the database
 dbConnect();
