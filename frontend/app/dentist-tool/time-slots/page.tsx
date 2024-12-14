@@ -168,12 +168,12 @@ export default function Appointment() {
         [dateKey]: availableSlots
       }));
 
-      const token = localStorage.getItem("authToken"); // Retrieve the token from localStorage
-
+    const token = sessionStorage.getItem("authToken");
     if (!token) {
       console.error("No token found. Please log in again.");
       return;
     }
+    console.log("Token being sent to API:", token);
 
     try {
       const response = await fetch("/api/dentistAvailability", {
@@ -188,10 +188,14 @@ export default function Appointment() {
           unavailableSlots: allSlots.filter((slot) => !availableSlots.includes(slot)),
         }),
       });
-      } catch (error) {
-        console.error("Failed to save availability:", error);
+
+      if (!response.ok) {
+        console.error("Failed to save availability:", await response.json());
       }
+    } catch (error) {
+      console.error("Failed to save availability:", error);
     }
+  }
 
     setIsModalOpen(false);
   };

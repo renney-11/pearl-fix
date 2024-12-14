@@ -13,8 +13,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { date, availableSlots, unavailableSlots, token } = req.body;
+  // Extract token from Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Unauthorized - Missing or invalid token" });
+  }
+  const token = authHeader.split(" ")[1]; // Retrieve the actual token part
 
+  const { date, availableSlots, unavailableSlots } = req.body;
   let connection: Connection | null = null;
   let channel: Channel | null = null;
 
@@ -33,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       date,
       availableSlots,
       unavailableSlots,
-      token, // Including the token in the message
+      token, // Token retrieved from header
     };
 
     channel.sendToQueue(setAvailabilityQueue, Buffer.from(JSON.stringify(payload)), {
