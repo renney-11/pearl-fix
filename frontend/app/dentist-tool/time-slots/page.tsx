@@ -83,7 +83,7 @@ export default function Appointment() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
-      const dateKey = `${year}-${month + 1}-${day}`; // Adjusted month indexing
+      const dateKey = `${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`; // Adjusted month indexing
 
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
@@ -99,8 +99,9 @@ export default function Appointment() {
         dayElement.classList.add("bg-red-100", "text-black");
       }
 
+      const holidayDate = `${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`; // Ensure correct format YYYY-MM-DD
       if (holidays.includes(`${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`)) {
-        dayElement.classList.add("bg-gray-200", "text-red-500", );
+        dayElement.classList.add("bg-gray-200", "text-red-500", "cursor-not-allowed");
       }
 
       if (dateAvailability[dateKey]) {
@@ -112,7 +113,7 @@ export default function Appointment() {
         }
       }
 
-      if (!isPastDate) {
+      if (!isPastDate && !holidays.includes(holidayDate)) {
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       }
 
