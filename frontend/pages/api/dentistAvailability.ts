@@ -4,7 +4,6 @@ import { NextApiRequest, NextApiResponse } from "next";
 interface SlotData {
   date: string;
   availableSlots: string[];
-  unavailableSlots: string[];
   token: string;
 }
 
@@ -20,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const token = authHeader.split(" ")[1]; // Retrieve the actual token part
 
-  const { date, availableSlots, unavailableSlots } = req.body;
+  const { date, availableSlots } = req.body;
   let connection: Connection | null = null;
   let channel: Channel | null = null;
 
@@ -38,7 +37,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const payload: SlotData = {
       date,
       availableSlots,
-      unavailableSlots,
       token, // Token retrieved from header
     };
 

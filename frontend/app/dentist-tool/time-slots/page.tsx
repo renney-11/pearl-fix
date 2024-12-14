@@ -8,7 +8,7 @@ export default function Appointment() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<{ start: Date; end: Date }[]>([]);
   const [unavailableDays, setUnavailableDays] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDayUnavailable, setIsDayUnavailable] = useState(false);
@@ -20,7 +20,7 @@ export default function Appointment() {
     "13:00", "14:00", "15:00", "16:00", "17:00"
   ];
 
-  const [dateAvailability, setDateAvailability] = useState<Record<string, string[]>>({});
+  const [dateAvailability, setDateAvailability] = useState<Record<string, { start: Date; end: Date }[]>>({});
 
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
@@ -83,7 +83,7 @@ export default function Appointment() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
-      const dateKey = `${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`; // Adjusted month indexing
+      const dateKey = `${year}-${month + 1}-${day}`; // Adjusted month indexing
 
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
@@ -99,9 +99,8 @@ export default function Appointment() {
         dayElement.classList.add("bg-red-100", "text-black");
       }
 
-      const holidayDate = `${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`; // Ensure correct format YYYY-MM-DD
       if (holidays.includes(`${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`)) {
-        dayElement.classList.add("bg-gray-200", "text-red-500", "cursor-not-allowed");
+        dayElement.classList.add("bg-gray-200", "text-red-500");
       }
 
       if (dateAvailability[dateKey]) {
@@ -113,7 +112,7 @@ export default function Appointment() {
         }
       }
 
-      if (!isPastDate && !holidays.includes(holidayDate)) {
+      if (!isPastDate) {
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       }
 
@@ -146,24 +145,34 @@ export default function Appointment() {
 
   const getAvailableSlotsForDay = (date: Date) => {
     const today = new Date();
-    const availableSlotsForDay = [...allSlots];
+    const availableSlotsForDay = allSlots.map(slot => {
+      const [hour, minute] = slot.split(":").map(Number);
+      const start = new Date(date);
+      start.setHours(hour, minute, 0, 0);
+      const end = new Date(start);
+      end.setHours(hour + 1, minute, 0, 0);
+      return { start, end };
+    });
 
     if (date.toDateString() === today.toDateString()) {
       const currentHour = today.getHours();
-      return availableSlotsForDay.filter((slot) => {
-        const slotHour = parseInt(slot.split(":")[0]);
-        return slotHour > currentHour;
-      });
+      return availableSlotsForDay.filter(slot => slot.start.getHours() > currentHour);
     }
 
     return availableSlotsForDay;
   };
 
   const toggleSlotAvailability = (slot: string) => {
-    setAvailableSlots((prev) =>
-      prev.includes(slot)
-        ? prev.filter((s) => s !== slot)
-        : [...prev, slot]
+    const [hour, minute] = slot.split(":").map(Number);
+    const start = new Date(selectedDate);  // Use the selectedDate for the base
+    start.setHours(hour, minute, 0, 0);
+    const end = new Date(start);
+    end.setHours(hour + 1, minute, 0, 0);
+  
+    setAvailableSlots(prev =>
+      prev.some(s => s.start.getTime() === start.getTime())
+        ? prev.filter(s => s.start.getTime() !== start.getTime())
+        : [...prev, { start, end }]
     );
   };
 
@@ -171,7 +180,7 @@ export default function Appointment() {
     if (!selectedDate) return;
 
     const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
-    setUnavailableDays((prev) => [...prev, dateKey]);
+    setUnavailableDays(prev => [...prev, dateKey]);
     setAvailableSlots([]);
     setIsDayUnavailable(true);
   };
@@ -180,7 +189,7 @@ export default function Appointment() {
     if (!selectedDate) return;
 
     const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
-    setUnavailableDays((prev) => prev.filter((day) => day !== dateKey));
+    setUnavailableDays(prev => prev.filter(day => day !== dateKey));
     setAvailableSlots(getAvailableSlotsForDay(selectedDate));
     setIsDayUnavailable(false);
   };
@@ -188,7 +197,7 @@ export default function Appointment() {
   const handleSaveSlots = async () => {
     if (selectedDate) {
       const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
-      setDateAvailability((prev) => ({
+      setDateAvailability(prev => ({
         ...prev,
         [dateKey]: availableSlots
       }));
@@ -208,8 +217,11 @@ export default function Appointment() {
           },
           body: JSON.stringify({
             date: dateKey,
-            availableSlots,
-            unavailableSlots: allSlots.filter((slot) => !availableSlots.includes(slot)),
+            availableSlots: availableSlots.map(slot => ({
+              start: slot.start,
+              end: slot.end,
+              status: "available"
+            })),
           }),
         });
 
@@ -296,28 +308,36 @@ export default function Appointment() {
                   {!isDateBlocked && (
                     <>
                       <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-                        {allSlots.map((slot) => (
-                          <li key={slot}>
-                            <input
-                              type="checkbox"
-                              id={slot}
-                              checked={availableSlots.includes(slot)}
-                              onChange={() => toggleSlotAvailability(slot)}
-                              className="hidden"
-                            />
-                            <label
-                              htmlFor={slot}
-                              className={`inline-flex items-center justify-center w-full px-2 py-1 text-sm font-medium text-center border rounded-lg cursor-pointer ${
-                                availableSlots.includes(slot)
-                                  ? "bg-green-100 text-green-700 border-green-500"
-                                  : "bg-red-100 text-red-700 border-red-500"
-                              }`}
-                            >
-                              {slot}
-                            </label>
-                          </li>
-                        ))}
-                      </ul>
+  {allSlots.map((slot) => {
+    const [hour, minute] = slot.split(":").map(Number);
+    const start = new Date(selectedDate);  // Use the selectedDate for the base
+    start.setHours(hour, minute, 0, 0);
+    const end = new Date(start);
+    end.setHours(hour + 1, minute, 0, 0);
+    
+    return (
+      <li key={slot}>
+        <input
+          type="checkbox"
+          id={slot}
+          checked={availableSlots.some(s => s.start.getTime() === start.getTime())}
+          onChange={() => toggleSlotAvailability(slot)}
+          className="hidden"
+        />
+        <label
+          htmlFor={slot}
+          className={`inline-flex items-center justify-center w-full px-2 py-1 text-sm font-medium text-center border rounded-lg cursor-pointer ${
+            availableSlots.some(s => s.start.getTime() === start.getTime())
+              ? "bg-green-100 text-green-700 border-green-500"
+              : "bg-red-100 text-red-700 border-red-500"
+          }`}
+        >
+          {slot}
+        </label>
+      </li>
+    );
+  })}
+</ul>
                       <div className="flex items-center justify-end mt-4 gap-2">
                         {isDayUnavailable ? (
                           <button
