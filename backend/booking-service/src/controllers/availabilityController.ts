@@ -6,6 +6,128 @@ import mongoose from "mongoose";
 // Initialize the MQTT handler
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
+(async () => {
+  try {
+    await mqttHandler.connect();
+
+    // Subscribe to the availability creation queue
+    await mqttHandler.subscribe("pearl-fix/availability/set", async (msg) => {
+      try {
+        console.log("Message received on 'pearl-fix/availability/set':", msg);
+
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(msg);
+        } catch (err) {
+          console.error("Failed to parse availability message:", err);
+          await mqttHandler.publish(
+            "pearl-fix/availability/confirmation",
+            JSON.stringify({ status: "failure", message: "Invalid message format" })
+          );
+          return;
+        }
+
+        const { dentist, workDays, timeSlots, date } = parsedMessage;
+
+        // Validate message data
+        if (!dentist || !mongoose.Types.ObjectId.isValid(dentist)) {
+          console.error("Invalid or missing dentist ID.");
+          await mqttHandler.publish(
+            "pearl-fix/availability/confirmation",
+            JSON.stringify({ status: "failure", message: "Invalid dentist ID" })
+          );
+          return;
+        }
+
+        if (!Array.isArray(workDays) || workDays.length === 0) {
+          console.error("Invalid or empty workDays array.");
+          await mqttHandler.publish(
+            "pearl-fix/availability/confirmation",
+            JSON.stringify({ status: "failure", message: "Invalid or empty workDays" })
+          );
+          return;
+        }
+
+        if (!Array.isArray(timeSlots) || timeSlots.length === 0) {
+          console.error("Invalid or empty timeSlots array.");
+          await mqttHandler.publish(
+            "pearl-fix/availability/confirmation",
+            JSON.stringify({ status: "failure", message: "Invalid or empty timeSlots" })
+          );
+          return;
+        }
+
+        const baseDate = new Date(date);
+
+        // Format time slots
+        const formattedTimeSlots = timeSlots.map((slot: { start: string; end: string }) => {
+          const startTimeParts = slot.start.split(":");
+          const endTimeParts = slot.end.split(":");
+
+          return {
+            start: new Date(
+              baseDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0)
+            ),
+            end: new Date(
+              baseDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0)
+            ),
+            status: "available",
+          };
+        });
+
+        // Create availability in the database
+        const availability = new Availability({
+          dentist,
+          workDays,
+          timeSlots: formattedTimeSlots,
+        });
+
+        await availability.save();
+
+        console.log("Availability created:", availability);
+
+        // Publish success confirmation
+        await mqttHandler.publish(
+          "pearl-fix/availability/confirmation",
+          JSON.stringify({
+            status: "success",
+            message: "Availability created successfully",
+            availabilityId: availability._id,
+          })
+        );
+        console.log("Published success confirmation for availability ID:", availability._id);
+      } catch (error) {
+        console.error("Error processing availability message:", error);
+
+        // Publish failure confirmation
+        await mqttHandler.publish(
+          "pearl-fix/availability/confirmation",
+          JSON.stringify({
+            status: "failure",
+            message: "Error processing availability creation",
+            error: error.message || String(error),
+          })
+        );
+      }
+    });
+
+    console.log("Subscribed to 'pearl-fix/availability/set'.");
+  } catch (error) {
+    console.error("Failed to initialize MQTT handler for availability:", error);
+  }
+
+  // Gracefully close MQTT handler on process termination
+  process.on("SIGINT", async () => {
+    try {
+      console.log("SIGINT received, closing MQTTHandler connection.");
+      await mqttHandler.close();
+      process.exit(0);
+    } catch (error) {
+      console.error("Error closing MQTTHandler connection:", error);
+      process.exit(1);
+    }
+  });
+})();
 
 export const createAvailability: RequestHandler = async (req, res): Promise<void> => {
   const { dentist, workDays, timeSlots, date } = req.body;
