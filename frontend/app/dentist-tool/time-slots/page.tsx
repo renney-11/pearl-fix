@@ -76,15 +76,15 @@ export default function Appointment() {
       }
 
       if (unavailableDays.includes(dateKey)) {
-        dayElement.classList.add("bg-red-100", "text-red-700");
+        dayElement.classList.add("bg-red-100", "text-black");
       }
 
       if (dateAvailability[dateKey]) {
         const availableCount = dateAvailability[dateKey].length;
         if (availableCount === allSlots.length) {
-          dayElement.classList.add("bg-green-100", "text-green-700");
+          dayElement.classList.add("bg-green-100", "text-black");
         } else if (availableCount > 0) {
-          dayElement.classList.add("bg-orange-100", "text-orange-700");
+          dayElement.classList.add("bg-orange-100", "text-black");
         }
       }
 
@@ -227,10 +227,13 @@ export default function Appointment() {
                           setCurrentMonth((prev) => prev - 1);
                         }
                       }}
+                      style={{ display: currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear() ? 'none' : 'inline-block' }} // Hide prev button if it's the current month
                     >
                       previous
                     </button>
-                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
+                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base text-center w-full">
+                      {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][currentMonth]} {currentYear}
+                    </h2>
                     <button
                       id="nextMonth"
                       className="text-white-blue"
@@ -242,6 +245,7 @@ export default function Appointment() {
                           setCurrentMonth((prev) => prev + 1);
                         }
                       }}
+                      style={{ display: currentYear === new Date().getFullYear() + 1 && currentMonth === 11 ? 'none' : 'inline-block' }} // Hide next button if it's December of the next year
                     >
                       next
                     </button>
