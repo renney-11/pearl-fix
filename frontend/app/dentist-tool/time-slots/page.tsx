@@ -13,6 +13,7 @@ export default function Appointment() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDayUnavailable, setIsDayUnavailable] = useState(false);
   const [isDateBlocked, setIsDateBlocked] = useState(false);
+  const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
 
   const allSlots = [
     "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
@@ -23,7 +24,26 @@ export default function Appointment() {
 
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
-  }, [currentYear, currentMonth, unavailableDays, dateAvailability]);
+  }, [currentYear, currentMonth, unavailableDays, dateAvailability, holidays]);
+
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const response = await fetch(
+          `https://calendarific.com/api/v2/holidays?api_key=HHCAcL6QW2USf32b9w3CqcvyQBMEZL7M&country=SE&year=${currentYear}`
+        );
+        const data = await response.json();
+        if (data && data.response && data.response.holidays) {
+          const holidayDates = data.response.holidays.map((holiday: any) => holiday.date.iso);
+          setHolidays(holidayDates);
+        }
+      } catch (error) {
+        console.error("Error fetching holidays:", error);
+      }
+    };
+
+    fetchHolidays();
+  }, [currentYear]);
 
   const generateCalendar = (year: number, month: number) => {
     const calendarElement = document.getElementById("calendar");
@@ -63,7 +83,7 @@ export default function Appointment() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
-      const dateKey = `${year}-${month}-${day}`;
+      const dateKey = `${year}-${month + 1}-${day}`; // Adjusted month indexing
 
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
@@ -77,6 +97,10 @@ export default function Appointment() {
 
       if (unavailableDays.includes(dateKey)) {
         dayElement.classList.add("bg-red-100", "text-black");
+      }
+
+      if (holidays.includes(`${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`)) {
+        dayElement.classList.add("bg-gray-200", "text-red-500", );
       }
 
       if (dateAvailability[dateKey]) {
@@ -96,13 +120,13 @@ export default function Appointment() {
     }
 
     prevButton.disabled = year === today.getFullYear() && month === today.getMonth();
-    nextButton.disabled = year === today.getFullYear() + 1 && month === 11;
+    nextButton.disabled = year === today.getFullYear() && month === today.getMonth() + 1;
   };
 
   const handleDateSelection = (date: Date) => {
     setSelectedDate(date);
 
-    const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
     if (unavailableDays.includes(dateKey)) {
       setIsDayUnavailable(true);
       setAvailableSlots([]);
@@ -145,7 +169,7 @@ export default function Appointment() {
   const handleMarkDayUnavailable = () => {
     if (!selectedDate) return;
 
-    const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+    const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
     setUnavailableDays((prev) => [...prev, dateKey]);
     setAvailableSlots([]);
     setIsDayUnavailable(true);
@@ -154,7 +178,7 @@ export default function Appointment() {
   const handleMarkDayAvailable = () => {
     if (!selectedDate) return;
 
-    const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+    const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
     setUnavailableDays((prev) => prev.filter((day) => day !== dateKey));
     setAvailableSlots(getAvailableSlotsForDay(selectedDate));
     setIsDayUnavailable(false);
@@ -162,40 +186,39 @@ export default function Appointment() {
 
   const handleSaveSlots = async () => {
     if (selectedDate) {
-      const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}-${selectedDate.getDate()}`;
+      const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
       setDateAvailability((prev) => ({
         ...prev,
         [dateKey]: availableSlots
       }));
 
-    const token = sessionStorage.getItem("authToken");
-    if (!token) {
-      console.error("No token found. Please log in again.");
-      return;
-    }
-    console.log("Token being sent to API:", token);
-
-    try {
-      const response = await fetch("/api/dentistAvailability", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // Include token in the header
-        },
-        body: JSON.stringify({
-          date: dateKey,
-          availableSlots,
-          unavailableSlots: allSlots.filter((slot) => !availableSlots.includes(slot)),
-        }),
-      });
-
-      if (!response.ok) {
-        console.error("Failed to save availability:", await response.json());
+      const token = sessionStorage.getItem("authToken");
+      if (!token) {
+        console.error("No token found. Please log in again.");
+        return;
       }
-    } catch (error) {
-      console.error("Failed to save availability:", error);
+
+      try {
+        const response = await fetch("/api/dentistAvailability", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            date: dateKey,
+            availableSlots,
+            unavailableSlots: allSlots.filter((slot) => !availableSlots.includes(slot)),
+          }),
+        });
+
+        if (!response.ok) {
+          console.error("Failed to save availability:", await response.json());
+        }
+      } catch (error) {
+        console.error("Failed to save availability:", error);
+      }
     }
-  }
 
     setIsModalOpen(false);
   };
@@ -227,7 +250,7 @@ export default function Appointment() {
                           setCurrentMonth((prev) => prev - 1);
                         }
                       }}
-                      style={{ display: currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear() ? 'none' : 'inline-block' }} // Hide prev button if it's the current month
+                      style={{ display: currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear() ? 'none' : 'inline-block' }}
                     >
                       previous
                     </button>
@@ -245,7 +268,7 @@ export default function Appointment() {
                           setCurrentMonth((prev) => prev + 1);
                         }
                       }}
-                      style={{ display: currentYear === new Date().getFullYear() + 1 && currentMonth === 11 ? 'none' : 'inline-block' }} // Hide next button if it's December of the next year
+                      style={{ display: currentYear === new Date().getFullYear() + 1 && currentMonth === 11 ? 'none' : 'inline-block' }}
                     >
                       next
                     </button>
@@ -283,10 +306,11 @@ export default function Appointment() {
                             />
                             <label
                               htmlFor={slot}
-                              className={`inline-flex items-center justify-center w-full px-2 py-1 text-sm font-medium text-center border rounded-lg cursor-pointer ${availableSlots.includes(slot)
-                                ? "bg-green-100 text-green-700 border-green-500"
-                                : "bg-red-100 text-red-700 border-red-500"
-                                }`}
+                              className={`inline-flex items-center justify-center w-full px-2 py-1 text-sm font-medium text-center border rounded-lg cursor-pointer ${
+                                availableSlots.includes(slot)
+                                  ? "bg-green-100 text-green-700 border-green-500"
+                                  : "bg-red-100 text-red-700 border-red-500"
+                              }`}
                             >
                               {slot}
                             </label>
