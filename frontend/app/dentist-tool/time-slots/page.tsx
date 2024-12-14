@@ -110,7 +110,7 @@ export default function Appointment() {
         } else if (availableCount > 0) {
           dayElement.classList.add("bg-orange-100", "text-black");
         }
-      }
+      }      
 
       if (!isPastDate) {
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
@@ -145,22 +145,25 @@ export default function Appointment() {
 
   const getAvailableSlotsForDay = (date: Date) => {
     const today = new Date();
-    const availableSlotsForDay = allSlots.map(slot => {
+    const availableSlotsForDay = allSlots.map((slot) => {
       const [hour, minute] = slot.split(":").map(Number);
       const start = new Date(date);
       start.setHours(hour, minute, 0, 0);
+  
       const end = new Date(start);
-      end.setHours(hour + 1, minute, 0, 0);
+      end.setHours(hour + 1, 0, 0); // Ensures the end time aligns with the slot duration
+  
       return { start, end };
     });
-
+  
     if (date.toDateString() === today.toDateString()) {
       const currentHour = today.getHours();
-      return availableSlotsForDay.filter(slot => slot.start.getHours() > currentHour);
+      return availableSlotsForDay.filter((slot) => slot.start.getHours() > currentHour);
     }
-
+  
     return availableSlotsForDay;
   };
+  
 
   const toggleSlotAvailability = (slot: string) => {
     const [hour, minute] = slot.split(":").map(Number);
@@ -195,46 +198,53 @@ export default function Appointment() {
   };
 
   const handleSaveSlots = async () => {
-    if (selectedDate) {
-      const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
-      setDateAvailability(prev => ({
-        ...prev,
-        [dateKey]: availableSlots
-      }));
-
-      const token = sessionStorage.getItem("authToken");
-      if (!token) {
-        console.error("No token found. Please log in again.");
+    if (!selectedDate) return;
+  
+    const token = sessionStorage.getItem("authToken");
+    if (!token) {
+      console.error("No token found. Please log in again.");
+      return;
+    }
+  
+    const dateKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth() + 1}-${selectedDate.getDate()}`;
+  
+    const formattedSlots = availableSlots.map((slot) => ({
+      start: `${slot.start.getHours()}:${slot.start.getMinutes().toString().padStart(2, "0")}`,
+      end: `${slot.end.getHours()}:${slot.end.getMinutes().toString().padStart(2, "0")}`,
+      status: "available",
+    }));
+  
+    try {
+      const response = await fetch("/api/dentistAvailability", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: dateKey,
+          availableSlots: formattedSlots,
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Failed to save availability:", errorData.message || errorData);
         return;
       }
-
-      try {
-        const response = await fetch("/api/dentistAvailability", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            date: dateKey,
-            availableSlots: availableSlots.map(slot => ({
-              start: slot.start,
-              end: slot.end,
-              status: "available"
-            })),
-          }),
-        });
-
-        if (!response.ok) {
-          console.error("Failed to save availability:", await response.json());
-        }
-      } catch (error) {
-        console.error("Failed to save availability:", error);
-      }
+  
+      console.log("Availability successfully saved!");
+      setDateAvailability((prev) => ({
+        ...prev,
+        [dateKey]: availableSlots,
+      }));
+    } catch (error) {
+      console.error("Failed to save availability:", error);
     }
-
+  
     setIsModalOpen(false);
   };
+  
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
