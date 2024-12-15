@@ -437,8 +437,8 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       // Now you can perform further logic with the validated user
       console.log("User verified:", user);
       await mqttHandler.publish(
-        "pearl-fix/authentication/verify-dentist",
-        JSON.stringify({ success: true, user })
+        "pearl-fix/authentication/verify-dentist/email",
+        JSON.stringify({ success: true, email: user.email })
       );
     } catch (error) {
       console.error("Error processing verify dentist message:", error);
