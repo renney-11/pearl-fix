@@ -45,6 +45,33 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         }
 
         await mqttHandler.publish("pearl-fix/authentication/verify-dentist", JSON.stringify({token}));
+        console.log(`Published token to 'pearl-fix/authentication/verify-dentist': ${token}`);
+
+        // Wait for email from the verification topic
+        const dentistEmail = await new Promise<string>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error("Timeout waiting for dentist verification email."));
+          }, 10000); // 10 seconds timeout
+
+          mqttHandler.subscribe("pearl-fix/authentication/verify-dentist/email", (emailMsg) => {
+            try {
+              const emailData = JSON.parse(emailMsg);
+              console.log("Message received on 'pearl-fix/authentication/verify-dentist/email':", emailData);
+
+              if (emailData?.email) {
+                clearTimeout(timeout); // Clear timeout once we get the email
+                resolve(emailData.email);
+              } else {
+                reject(new Error("Invalid email received from verification topic."));
+              }
+            } catch (error) {
+              console.error("Error parsing email verification message:", error);
+              reject(error);
+            }
+          });
+        });
+
+        console.log(`Dentist email verified: ${dentistEmail}`);
     
         const baseDate = new Date(date);
     
@@ -62,7 +89,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
     
         // Save to database
         const availability = new Availability({
-          dentist: email,
+          dentist: dentistEmail,
           date: baseDate,
           timeSlots: formattedSlots,
         });
