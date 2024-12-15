@@ -51,7 +51,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         const dentistEmail = await new Promise<string>((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error("Timeout waiting for dentist verification email."));
-          }, 10000); // 10 seconds timeout
+          }, 30000); // 10 seconds timeout
 
           mqttHandler.subscribe("pearl-fix/authentication/verify-dentist/email", (emailMsg) => {
             try {
