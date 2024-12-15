@@ -27,37 +27,32 @@ export default function Login() {
     try {
       const response = await fetch("/api/dentistLogin", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
       });
-
+    
       if (response.ok) {
         const data = await response.json();
         const token = data.token;
-
+    
         if (token) {
-          localStorage.setItem("authToken", token);
-
+          sessionStorage.setItem("authToken", token); // Save token securely
           alert("Login successful!");
-          router.push("/dentist-tool/time-slots"); 
+          router.push("/dentist-tool/time-slots");
         } else {
           alert("Login successful, but no token received.");
         }
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message}`);
+        alert(`Error: ${error.message || "Login failed."}`);
       }
     } catch (err) {
       console.error("Error logging in:", err);
-      alert("Failed to send login data.");
-    } finally {
-    setLoading(false);
-  }
+      alert("Failed to send login data. Please try again.");
+    }
+     finally {
+      setLoading(false); // Reset loading state
+    }
   };
 
   return (

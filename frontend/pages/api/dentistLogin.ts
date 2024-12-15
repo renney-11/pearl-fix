@@ -78,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           tokenReceived = true;
           clearTimeout(timeout); // Clear timeout
           channel.ack(msg); // Acknowledge the message
-
+          
           // Purge remaining messages
           await purgeQueue(authenticateQueue);
 
