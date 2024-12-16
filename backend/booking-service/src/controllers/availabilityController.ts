@@ -342,6 +342,32 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
+export const getAvailabilitiesForClinic: RequestHandler = async (req, res): Promise<void> => {
+  const { clinicId } = req.params;
+  console.log("clinicId:", clinicId);
+
+  try {
+    // Validate the clinicId
+    if (!clinicId) {
+      res.status(400).json({ message: "Clinic ID is required." });
+      return;
+    }
+
+    // Fetch all availabilities for the given clinic
+    const availabilities = await Availability.find({ clinicId });
+
+    if (!availabilities || availabilities.length === 0) {
+      res.status(404).json({ message: "No availabilities found for the given clinic." });
+      return;
+    }
+
+    res.status(200).json({ availabilities });
+  } catch (error) {
+    console.error("Error fetching availabilities for clinic:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
 export const removeAvailability: RequestHandler = async (req, res): Promise<void> => {
   const { dentistId, timeSlotId } = req.params;
 
