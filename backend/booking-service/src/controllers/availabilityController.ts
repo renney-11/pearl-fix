@@ -107,6 +107,49 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
         const dentistId = receivedDentist._id;
 
+        await mqttHandler.publish(
+          "pearl-fix/booking/find/clinic",
+          JSON.stringify({ dentistId })
+        );
+        console.log(`Published dentistId to "pearl-fix/booking/find/clinic":`, dentistId);
+    
+        const clinic: any = await new Promise((resolve, reject) => {
+          let clinicData: any = null;
+          const timeout = setTimeout(() => {
+            if (clinicData) {
+              resolve(clinicData);
+            } else {
+              reject(new Error("No clinic received from MQTT subscription"));
+            }
+          }, 10000);
+    
+          mqttHandler.subscribe("pearl-fix/booking/clinic", (msg) => {
+            try {
+              const message = JSON.parse(msg.toString());
+              console.log("Message received on 'pearl-fix/booking/clinic':", message);
+    
+              if (message.clinic) {
+                clinicData = message.clinic;
+                clearTimeout(timeout);
+                resolve(clinicData);
+              }
+            } catch (error) {
+              console.error("Error processing clinic message:", error);
+            }
+          });
+        });
+    
+        if (!clinic?._id) {
+          console.error("Clinic not found from MQTT data.");
+          await mqttHandler.publish(
+            "pearl-fix/availability/error",
+            JSON.stringify({ status: "failure", message: "Clinic not found from MQTT data." })
+          );
+          return;
+        }
+    
+        const clinicIdFromMQTT = clinic._id;
+
         // Use the provided date for time slots
         const baseDate = new Date(date);
 
@@ -135,6 +178,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           dentist: dentistId,
           workDays: parsedMessage.workDays,
           timeSlots: formattedTimeSlots,
+          clinicId: clinicIdFromMQTT,
         });
 
         // Save availability document to DB
