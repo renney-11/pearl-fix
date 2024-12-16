@@ -39,7 +39,7 @@ export default function Login() {
         const token = data.token;
 
         if (token) {
-          localStorage.setItem("authToken", token);
+          sessionStorage.setItem("authToken", token);
 
           alert("Login successful!");
           router.push("/patient-tool/landing-page"); 
