@@ -54,7 +54,7 @@ export default function SignUp() {
         const token = data.token;
 
         if (token) {
-          localStorage.setItem("authToken", token);
+          sessionStorage.setItem("authToken", token);
 
           alert("Signup successful!");
           router.push("/patient-tool/landing-page"); 
