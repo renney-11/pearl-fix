@@ -45,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     console.log("Published message to set availability", payload);
 
-    const responseQueue = "pearl-fix/availability/confirmation";
+    const responseQueue = "pearl-fix/availability/confirmations";
     await channel.assertQueue(responseQueue, { durable: true });
 
     console.log("Waiting for confirmation...");

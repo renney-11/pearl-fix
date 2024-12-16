@@ -11,6 +11,7 @@ export interface IAvailability extends Document {
   dentist: mongoose.Types.ObjectId; // Reference to the Dentist
   workDays: string[];
   timeSlots: ITimeSlot[];
+  clinicId: mongoose.Types.ObjectId; // Reference to the Clinic (optional)
 }
 
 const TimeSlotSchema: Schema = new Schema({
@@ -28,6 +29,7 @@ const AvailabilitySchema: Schema = new Schema(
       required: true,
     },
     timeSlots: { type: [TimeSlotSchema], required: true },
+    clinicId: { type: mongoose.Schema.Types.ObjectId, ref: "Clinic", required: true },
   },
   { timestamps: true } // Add createdAt and updatedAt timestamps
 );
