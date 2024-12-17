@@ -6,9 +6,7 @@ import { faFaceSadTear, faHospitalUser } from '@fortawesome/free-solid-svg-icons
 import { useState } from 'react';
 
 export default function UpcomingAppointments() {
-  // Initialize the appointments as state
   const [appointments, setAppointments] = useState([
-    // For now, this part is hard-coded
     {
       date: "Wednesday 16th June, 2025",
       time: "13:00",
@@ -33,24 +31,31 @@ export default function UpcomingAppointments() {
   ]);
 
   const handleCancel = (time: string, dentist: string, date: string) => {
-    // Ask for confirmation before proceeding with the cancellation
     const isConfirmed = window.confirm(`Are you sure you want to cancel the appointment with ${dentist} on ${date} at ${time}?`);
-
     if (isConfirmed) {
-      // Remove the cancelled appointment from the list
-      setAppointments((prevAppointments) => 
-        prevAppointments.filter(appointment => 
-          !(appointment.time === time && appointment.dentist === dentist && appointment.date === date)
+      setAppointments((prevAppointments) =>
+        prevAppointments.filter(
+          (appointment) => !(appointment.time === time && appointment.dentist === dentist && appointment.date === date)
         )
       );
-
-      // Replace this alert with actual cancellation logic, such as an API call
       alert(`Cancelled appointment with ${dentist} on ${date} at ${time}`);
     }
   };
 
+  // Helper function to remove ordinal suffixes
+  const removeOrdinalSuffix = (dateString: string) => {
+    return dateString.replace(/(\d+)(st|nd|rd|th)/, "$1");
+  };
+
+  // Sort appointments by date and time
+  const sortedAppointments = [...appointments].sort((a, b) => {
+    const dateTimeA = new Date(`${removeOrdinalSuffix(a.date)} ${a.time}`);
+    const dateTimeB = new Date(`${removeOrdinalSuffix(b.date)} ${b.time}`);
+    return dateTimeA.getTime() - dateTimeB.getTime();
+  });
+
   // Group appointments by date
-  const groupedAppointments = appointments.reduce((groups: Record<string, typeof appointments>, appointment) => {
+  const groupedAppointments = sortedAppointments.reduce((groups: Record<string, typeof sortedAppointments>, appointment) => {
     const date = appointment.date;
     if (!groups[date]) {
       groups[date] = [];
@@ -72,30 +77,25 @@ export default function UpcomingAppointments() {
 
           <div className="p-6">
             {/* Check if there are no upcoming appointments */}
-                      {appointments.length === 0 ? (
-            <div className="min-h-0 bg-transparent-blue flex flex-col items-center justify-center p-6">
-              
-              <div className="text-center text-3xl font-bold text-main-blue mb-4">
-                <p>You don't have any upcoming appointments <FontAwesomeIcon icon={faFaceSadTear} /></p>
+            {appointments.length === 0 ? (
+              <div className="min-h-0 bg-transparent-blue flex flex-col items-center justify-center p-6">
+                <div className="text-center text-3xl font-bold text-main-blue mb-4">
+                  <p>You don't have any upcoming appointments <FontAwesomeIcon icon={faFaceSadTear} /></p>
+                </div>
+                <div className="text-center text-lg text-main-blue mb-6">
+                  <p>Why wait? Schedule your next visit today!</p>
+                </div>
+                {/* Book Now Button */}
+                <div>
+                  <a
+                    href="http://localhost:3000/patient-tool/find-care"
+                    className="bg-main-blue text-white py-2 px-6 rounded-md hover:bg-blue-700 transition"
+                  >
+                    Book Now
+                  </a>
+                </div>
               </div>
-              
-              
-              <div className="text-center text-lg text-main-blue mb-6">
-                <p>Why wait? Schedule your next visit today!</p>
-              </div>
-              
-              {/* Book Now Button */}
-              <div>
-                <a
-                  href="http://localhost:3000/patient-tool/find-care"
-                  className="bg-main-blue text-white py-2 px-6 rounded-md hover:bg-blue-700 transition"
-                >
-                  Book Now
-                </a>
-              </div>
-            </div>
-          ) : (
-          
+            ) : (
               // Loop through grouped appointments
               Object.keys(groupedAppointments).map((date, index) => (
                 <div key={index}>
@@ -104,10 +104,7 @@ export default function UpcomingAppointments() {
 
                   {/* Loop through appointments for this date */}
                   {groupedAppointments[date].map((appointment, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 mb-4 border-2 border-white rounded-md bg-transparent-blue"
-                    >
+                    <div key={idx} className="p-4 mb-4 border-2 border-white rounded-md bg-transparent-blue">
                       <div className="flex justify-between items-center">
                         {/* FontAwesome Icon */}
                         <div className="flex items-center">
@@ -118,7 +115,7 @@ export default function UpcomingAppointments() {
                               fontSize: "50px",
                               marginRight: "12px",
                               marginTop: "4px"
-                            }} 
+                            }}
                           />
                           <div>
                             <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{appointment.time}</span></p>
