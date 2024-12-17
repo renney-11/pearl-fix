@@ -16,25 +16,37 @@ export default function Appointment() {
   // Fetch availabilities on component mount
   useEffect(() => {
     const fetchAvailabilities = async () => {
-      const response = await fetch("/api/availabilities");
-      const data = await response.json();
-    
-      // Log the response to inspect it
-      console.log("Received availabilities:", data);
-    
-      // Ensure that the availabilities and timeSlots are in the correct format
-      if (data && data.availabilities) {
-        data.availabilities.forEach((availability) => {
-          console.log("Time Slots for availability:", availability.timeSlots);
-          availability.timeSlots.forEach((slot) => {
-            console.log("Start:", slot.start, "End:", slot.end);
+      try {
+        const response = await fetch("/api/booking");  
+        const data = await response.json();
+        console.log("Received availabilities:", data);
+  
+        // Transform timeSlots into a date-keyed structure
+        const transformedAvailabilities: Record<string, any> = {};
+        if (data && data.availabilities) {
+          data.availabilities.forEach((availability: any) => {
+            availability.timeSlots.forEach((slot: any) => {
+              const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
+              if (!transformedAvailabilities[dateKey]) {
+                transformedAvailabilities[dateKey] = {
+                  timeSlots: [],
+                };
+              }
+              transformedAvailabilities[dateKey].timeSlots.push(slot);
+            });
           });
-        });
+        }
+  
+        setAvailabilities(transformedAvailabilities); // Store transformed data
+        console.log("Transformed availabilities:", transformedAvailabilities);
+      } catch (error) {
+        console.error("Error fetching availabilities:", error);
       }
     };
-    
+  
     fetchAvailabilities();
   }, []);
+  
 
   // Re-render calendar when year, month, or selected date changes
   useEffect(() => {
@@ -46,25 +58,25 @@ export default function Appointment() {
     const calendarElement = document.getElementById("calendar");
     const currentMonthElement = document.getElementById("currentMonth");
     const prevButton = document.getElementById("prevMonth") as HTMLButtonElement;
-
+  
     if (!calendarElement || !currentMonthElement || !prevButton) return;
-
+  
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
+  
     const firstDayOfMonth = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
+  
     calendarElement.innerHTML = "";
     const monthNames = [
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
     ];
     currentMonthElement.innerText = `${monthNames[month]} ${year}`;
-
+  
     const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
+  
     // Add headers for days of the week
     daysOfWeek.forEach(day => {
       const dayElement = document.createElement("div");
@@ -72,45 +84,37 @@ export default function Appointment() {
       dayElement.innerText = day;
       calendarElement.appendChild(dayElement);
     });
-
+  
     // Add empty slots for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
       const emptyDayElement = document.createElement("div");
       calendarElement.appendChild(emptyDayElement);
     }
-
+  
     // Loop through all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
       const formattedDate = currentDate.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-      const weekDayIndex = currentDate.getDay(); // Sunday: 0, Monday: 1, ...
-
+  
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
       dayElement.innerText = String(day);
-
+  
       if (currentDate < today) {
         // Disable past dates
         dayElement.className =
           "text-center py-2 border text-gray-200 cursor-not-allowed text-xs sm:text-base";
-      } else if (availabilities && availabilities[formattedDate]) {
-        const availability = availabilities[formattedDate];
-        if (availability.workDays.includes(weekDayIndex) && availability.timeSlots.length > 0) {
-          // Enable clickable dates with availability
-          dayElement.classList.add("bg-violet-50", "text-blue-700", "cursor-pointer");
-          dayElement.addEventListener("click", () => handleDateSelection(currentDate));
-        } else {
-          // Workday but no time slots
-          dayElement.className =
-            "text-center py-2 border text-gray-300 cursor-not-allowed text-xs sm:text-base";
-        }
+      } else if (availabilities && availabilities[formattedDate]?.timeSlots?.length > 0) {
+        // Enable clickable dates with availability
+        dayElement.classList.add("bg-violet-50", "text-blue-700", "cursor-pointer");
+        dayElement.addEventListener("click", () => handleDateSelection(currentDate));
       } else {
         // Dates with no availability
         dayElement.className =
           "text-center py-2 border text-gray-300 cursor-not-allowed text-xs sm:text-base";
       }
-
+  
       // Highlight selected date
       if (
         selectedDate &&
@@ -120,10 +124,10 @@ export default function Appointment() {
       ) {
         dayElement.classList.add("bg-blue-200", "text-white");
       }
-
+  
       calendarElement.appendChild(dayElement);
     }
-
+  
     // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
@@ -133,19 +137,19 @@ export default function Appointment() {
       prevButton.classList.remove("opacity-0");
     }
   };
-
+  
   // Handle date selection
   const handleDateSelection = (date: Date) => {
-    const formattedDate = date.toISOString().split("T")[0];
+    const formattedDate = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
     setSelectedDate(date);
-
-    if (availabilities && availabilities[formattedDate]) {
-      const availability = availabilities[formattedDate];
-      setAvailableTimes(availability.timeSlots);
+  
+    if (availabilities && availabilities[formattedDate]?.timeSlots) {
+      setAvailableTimes(availabilities[formattedDate].timeSlots.map((slot: any) => slot.start)); // Extract start times
     } else {
       setAvailableTimes([]);
     }
   };
+  
 
   // Handle saving the booking
   const handleSave = async () => {
