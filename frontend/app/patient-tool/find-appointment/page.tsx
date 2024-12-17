@@ -17,6 +17,7 @@ export default function Appointment() {
   }, [currentYear, currentMonth, selectedDate]);
 
   const generateCalendar = (year: number, month: number) => {
+
     const calendarElement = document.getElementById("calendar");
     const currentMonthElement = document.getElementById("currentMonth");
     const prevButton = document.getElementById("prevMonth") as HTMLButtonElement;
@@ -97,7 +98,10 @@ export default function Appointment() {
       prevButton.disabled = false;
       prevButton.classList.remove("opacity-0");
     }
+
   };
+
+  
 
   const handleDateSelection = (date: Date) => {
     setSelectedDate(date);

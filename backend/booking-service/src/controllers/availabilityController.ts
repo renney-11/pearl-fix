@@ -213,6 +213,63 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         }
       });
     });
+
+
+    // Subscribe to the availability queue
+mqttHandler.subscribe("pearl-fix/availability/clinic-id", async (msg) => {
+  try {
+    console.log(`Message received on '${"pearl-fix/availability/clinic-id"}':`, msg);
+
+    // Parse the incoming message
+    const { clinicId } = JSON.parse(msg.toString());
+    if (!clinicId) {
+      console.error("Invalid message: Missing clinicId");
+      return;
+    }
+
+    console.log("Fetching availabilities for clinicId:", clinicId);
+
+    // Fetch availabilities for the given clinic
+    const availabilities = await Availability.find({ clinicId });
+
+    if (!availabilities || availabilities.length === 0) {
+      console.log(`No availabilities found for clinicId: ${clinicId}`);
+      await mqttHandler.publish(
+        "pearl-fix/availability/clinic/all",
+        JSON.stringify({
+          status: "failure",
+          message: "No availabilities found.",
+        })
+      );
+      return;
+    }
+
+    console.log(`Found ${availabilities.length} availabilities for clinicId: ${clinicId}`);
+
+    // Publish the availabilities to the all topic
+    await mqttHandler.publish(
+      "pearl-fix/availability/clinic/all",
+      JSON.stringify({
+        status: "success",
+        clinicId,
+        availabilities,
+      })
+    );
+
+    console.log(`Published availabilities to '${"pearl-fix/availability/clinic/all"}'`);
+  } catch (error) {
+    console.error("Error processing availability message:", error);
+    await mqttHandler.publish(
+      "pearl-fix/availability/clinic/all",
+      JSON.stringify({
+        status: "failure",
+        message: "Error processing availability message.",
+        error: error.message,
+      })
+    );
+  }
+});
+
   } catch (error) {
     console.error("Unexpected error:", error);
   }
@@ -345,18 +402,17 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
+
+
 export const getAvailabilitiesForClinic: RequestHandler = async (req, res): Promise<void> => {
-  const { clinicId } = req.params;
-  console.log("clinicId:", clinicId);
+  const { clinicId } = req.body;
 
   try {
-    // Validate the clinicId
     if (!clinicId) {
       res.status(400).json({ message: "Clinic ID is required." });
       return;
     }
 
-    // Fetch all availabilities for the given clinic
     const availabilities = await Availability.find({ clinicId });
 
     if (!availabilities || availabilities.length === 0) {
