@@ -12,6 +12,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 interface Clinic {
   clinicName: string;
   address: string;
+  _id: string;
   coordinates: {
     latitude: number;
     longitude: number;
@@ -203,9 +204,10 @@ const Map: React.FC = () => {
                     </button>
                     <button
                       className="bg-green-600 text-white py-1 px-3 rounded-md text-sm hover:bg-green-700"
-                      onClick={() =>
-                        router.push("/patient-tool/find-appointment")
-                      }
+                      onClick={() => {
+                        sessionStorage.setItem("chosenClinic",clinic._id);
+                        router.push("/patient-tool/find-appointment");
+                      }}
                     >
                       Book Now
                     </button>
