@@ -2,8 +2,8 @@
 import Header from '@/src/components/header';
 import Background from '@/src/components/background';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFaceSadTear, faHospitalUser } from '@fortawesome/free-solid-svg-icons'; // Import the hospital icon
-import { useState } from 'react'; // Import useState
+import { faFaceSadTear, faHospitalUser } from '@fortawesome/free-solid-svg-icons';
+import { useState } from 'react';
 
 export default function UpcomingAppointments() {
   // Initialize the appointments as state

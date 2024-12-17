@@ -4,37 +4,41 @@ import SubBackground from '@/src/components/subbackground';
 import Background from '@/src/components/background';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHospitalUser } from '@fortawesome/free-solid-svg-icons'; // Import the hospital icon
+import { useState } from 'react';
 
 export default function UpcomingAppointments() {
-  const appointments = [
+  const [appointments, setAppointments] = useState([
     {
       date: "Wednesday 16th June, 2025",
       time: "13:00",
-      patientName: "celina",
+      patientName: "Celina",
       patientContact: "celina@gmail.com",
     },
     {
       date: "Wednesday 16th June, 2025",
       time: "15:00",
-      patientName: "manely",
+      patientName: "Manely",
       patientContact: "manely@gmail.com",
     },
     {
       date: "Thursday 17th June, 2025",
       time: "09:00",
-      patientName: "saba",
+      patientName: "Saba",
       patientContact: "saba@gmail.com",
     },
-  ];
+  ]);
 
   const handleCancel = (time: string, patientName: string) => {
     // Ask for confirmation before proceeding with the cancellation
     const isConfirmed = window.confirm(`Are you sure you want to cancel the appointment for ${patientName} at ${time}?`);
 
     if (isConfirmed) {
-      // Proceed with the cancellation (replace with actual logic if needed)
+      // Proceed with the cancellation (remove the appointment from the state)
+      setAppointments((prevAppointments) =>
+        prevAppointments.filter((appointment) => !(appointment.time === time && appointment.patientName === patientName))
+      );
+      // Optionally, you can replace this alert with actual cancellation logic, such as an API call
       alert(`Cancelled appointment for ${patientName} at ${time}`);
-      // Replace this alert with actual cancellation logic, such as an API call
     }
   };
 
@@ -56,12 +60,10 @@ export default function UpcomingAppointments() {
 
           {/* "Let’s get you ready for work" outside, centered */}
           <div className="text-center p-8 mb-4">
-            <h1 className="text-3xl font-bold text-main-blue">Upcoming appointments</h1>
+            <h1 className="text-3xl font-bold text-main-blue">Upcoming Appointments</h1>
           </div>
-
-          {/* SubBackground with appointments inside it */}
-          <SubBackground>
-            <div className="p-4">
+          
+            <div className="p-6">
               {/* Loop through grouped appointments */}
               {Object.keys(groupedAppointments).map((date, index) => (
                 <div key={index}>
@@ -72,7 +74,7 @@ export default function UpcomingAppointments() {
                   {groupedAppointments[date].map((appointment, idx) => (
                     <div
                       key={idx}
-                      className="p-4 mb-4 border-2 border-white rounded-lg bg-[#E0DCFB]"  
+                      className="p-4 mb-4 border-2 border-white rounded-md bg-transparent-blue"  // Same as the patient design
                     >
                       <div className="flex justify-between items-center">
                         {/* FontAwesome Icon */}
@@ -80,16 +82,16 @@ export default function UpcomingAppointments() {
                           <FontAwesomeIcon
                             icon={faHospitalUser}
                             style={{
-                              color: "#ffffff", 
-                              fontSize: "50px", 
-                              marginRight: "12px", 
+                              color: "#ffffff",
+                              fontSize: "50px",
+                              marginRight: "12px",
                               marginTop: "4px"
-                            }} // Adjust size, margin, and vertical alignment
+                            }} 
                           />
                           <div>
-                            <p className="text-sm font-bold text-main-blue">Time: {appointment.time}</p>
-                            <p className="text-sm font-bold text-main-blue">Patient's name: {appointment.patientName}</p>
-                            <p className="text-sm font-bold text-main-blue">Patient's contact: {appointment.patientContact}</p>
+                            <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{appointment.time}</span></p>
+                            <p className="text-sm font-bold text-main-blue">Patient: <span className="font-normal">{appointment.patientName}</span></p>
+                            <p className="text-sm font-bold text-main-blue">Contact: <span className="font-normal">{appointment.patientContact}</span></p>
                           </div>
                         </div>
 
@@ -106,7 +108,6 @@ export default function UpcomingAppointments() {
                 </div>
               ))}
             </div>
-          </SubBackground>
         </Background>
       </main>
     </div>
