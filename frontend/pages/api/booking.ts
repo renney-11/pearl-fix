@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel } from "amqplib";
 
-let availabilitiesCache: any = null; // Cache for the latest availabilities
+let timeSlotsCache: any = null; // Cache for the latest time slots
 
 // Subscribe to the "pearl-fix/availability/clinic/all" queue to update the cache
 async function subscribeToAvailabilitiesQueue() {
@@ -21,7 +21,20 @@ async function subscribeToAvailabilitiesQueue() {
           try {
             const data = JSON.parse(msg.content.toString());
             console.log("Message received on 'pearl-fix/availability/clinic/all':", data);
-            availabilitiesCache = data; // Update the cache with the latest data
+
+            // Update the cache with the received timeSlots data
+            const timeSlots = data.timeSlots.map((slot: any) => ({
+              start: new Date(slot.start).toISOString(),
+              end: new Date(slot.end).toISOString(),
+              status: slot.status,
+            }));
+
+            // Update the cache with the latest time slots for this clinicId
+            timeSlotsCache = {
+              clinicId: data.clinicId,
+              timeSlots: timeSlots,
+            };
+
             channel.ack(msg);
           } catch (error) {
             console.error("Error parsing message:", error);
@@ -93,13 +106,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
   } else if (req.method === "GET") {
-    // Return cached availabilities
+    // Return cached timeSlots
     try {
-      if (!availabilitiesCache) {
+      if (!timeSlotsCache) {
         return res.status(404).json({ message: "No availabilities found." });
       }
 
-      res.status(200).json(availabilitiesCache);
+      res.status(200).json(timeSlotsCache);
     } catch (error) {
       console.error("Error fetching availabilities:", error);
       res.status(500).json({ error: "Internal server error" });
