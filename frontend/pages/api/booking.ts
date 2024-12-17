@@ -1,9 +1,14 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel } from "amqplib";
 
-let timeSlotsCache: any = null; // Cache for the latest time slots
+let timeSlotsCache: { clinicId: string | null; timeSlots: any[] } = {
+  clinicId: null,
+  timeSlots: [],
+};
 
-// Subscribe to the "pearl-fix/availability/clinic/all" queue to update the cache
+let isCacheUpdated = false; // Tracks if the cache has been updated
+
+// Function to handle subscribing to the RabbitMQ queue for availabilities
 async function subscribeToAvailabilitiesQueue() {
   try {
     const connection = await amqp.connect(
@@ -22,20 +27,21 @@ async function subscribeToAvailabilitiesQueue() {
             const data = JSON.parse(msg.content.toString());
             console.log("Message received on 'pearl-fix/availability/clinic/all':", data);
 
-            // Update the cache with the received timeSlots data
-            const timeSlots = data.timeSlots.map((slot: any) => ({
-              start: new Date(slot.start).toISOString(),
-              end: new Date(slot.end).toISOString(),
-              status: slot.status,
-            }));
+            if (data.status === "success" && Array.isArray(data.timeSlots)) {
+              // Update the cache with new data
+              timeSlotsCache = {
+                clinicId: data.clinicId || null,
+                timeSlots: data.timeSlots.map((slot: any) => ({
+                  start: new Date(slot.start).toISOString(),
+                  end: new Date(slot.end).toISOString(),
+                  status: slot.status,
+                })),
+              };
+              isCacheUpdated = true; // Mark cache as updated
+              console.log("Updated timeSlotsCache:", timeSlotsCache);
+            }
 
-            // Update the cache with the latest time slots for this clinicId
-            timeSlotsCache = {
-              clinicId: data.clinicId,
-              timeSlots: timeSlots,
-            };
-
-            channel.ack(msg);
+            channel.ack(msg); // Acknowledge the message
           } catch (error) {
             console.error("Error parsing message:", error);
           }
@@ -48,14 +54,18 @@ async function subscribeToAvailabilitiesQueue() {
   }
 }
 
-// Ensure the subscription runs on server startup
+// Run the RabbitMQ subscription on server startup
 subscribeToAvailabilitiesQueue().catch((error) =>
   console.error("Subscription failed:", error)
 );
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === "POST") {
-    const { clinicId, date, time } = req.body; // Extract clinicId from the request body
+  if (req.method === "GET") {
+    // If cache hasn't been updated, return the cached data (even if empty)
+    res.status(200).json(timeSlotsCache);
+
+  } else if (req.method === "POST") {
+    const { clinicId, date, time } = req.body;
 
     if (!clinicId) {
       return res.status(400).json({ error: "Clinic ID is required." });
@@ -85,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const bookingQueue = "pearl-fix/booking/date-time";
         await channel.assertQueue(bookingQueue, { durable: true });
 
-        const payload = { date, time, clinicId }; // Include clinicId in the payload
+        const payload = { date, time, clinicId };
         channel.sendToQueue(bookingQueue, Buffer.from(JSON.stringify(payload)), {
           persistent: true,
         });
@@ -93,7 +103,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log("Booking published:", payload);
       }
 
-      res.status(200).json({ message: "Clinic ID sent to availability service." });
+      // Simulate saving the time slots if available
+      if (clinicId) {
+        // Here we just mock the availability data to simulate the change in cache
+        timeSlotsCache = {
+          clinicId: clinicId,
+          timeSlots: [
+            {
+              start: new Date().toISOString(),
+              end: new Date(new Date().getTime() + 30 * 60 * 1000).toISOString(),
+              status: "available",
+            },
+            {
+              start: new Date(new Date().getTime() + 60 * 60 * 1000).toISOString(),
+              end: new Date(new Date().getTime() + 90 * 60 * 1000).toISOString(),
+              status: "available",
+            },
+          ],
+        };
+        isCacheUpdated = true;
+        console.log("Time slots updated in cache after POST:", timeSlotsCache);
+      }
+
+      res.status(200).json({ message: "Clinic ID and booking information sent." });
     } catch (error) {
       console.error("Error publishing booking:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -104,18 +136,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (error) {
         console.error("Error closing connection/channel:", error);
       }
-    }
-  } else if (req.method === "GET") {
-    // Return cached timeSlots
-    try {
-      if (!timeSlotsCache) {
-        return res.status(404).json({ message: "No availabilities found." });
-      }
-
-      res.status(200).json(timeSlotsCache);
-    } catch (error) {
-      console.error("Error fetching availabilities:", error);
-      res.status(500).json({ error: "Internal server error" });
     }
   } else {
     res.status(405).json({ error: "Method not allowed" });
