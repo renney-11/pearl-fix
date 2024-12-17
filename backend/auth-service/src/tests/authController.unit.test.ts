@@ -23,11 +23,11 @@ jest.mock("../mqtt/MqttHandler", () => {
 describe("AuthController", () => {
   describe("register", () => {
 
-    it("should return a 405 status if patient when using register", async () => {
+    it("should register a new patient and return a token", async () => {
       const req = {
         body: {
-          name: "John Doe",
-          email: "johndoe@example.com",
+          name: "Reney Paktiani",
+          email: "reney@example.com",
           password: "password123",
         },
       } as Request;
@@ -36,13 +36,24 @@ describe("AuthController", () => {
         json: jest.fn(),
       } as unknown as Response;
       const next = jest.fn();
-    
-      await register(req, res, next);
-    
-      expect(res.status).toHaveBeenCalledWith(405);
-      expect(res.json).toHaveBeenCalledWith({ message: "Use the message queue to register patients" });
+
+      const newPatient = {
+        _id: "123456789",
+        name: "Dr. Smith",
+        email: "smith@example.com",
+        password: "password123",
+      };
+
+      (Patient.prototype.save as jest.Mock).mockResolvedValueOnce(newPatient);
+
+      (generateToken as jest.Mock).mockResolvedValueOnce("token123");
+
+      await registerDentist(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ token: "token123" });
       expect(next).not.toHaveBeenCalled();
-    });    
+    });
   });
 
   describe("registerDentist", () => {
