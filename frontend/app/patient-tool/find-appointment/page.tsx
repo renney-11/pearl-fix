@@ -1,9 +1,9 @@
 "use client";
-import Header from '@/src/components/header';
-import SubBackground from '@/src/components/subbackground';
-import Background from '@/src/components/background';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import Header from "@/src/components/header";
+import SubBackground from "@/src/components/subbackground";
+import Background from "@/src/components/background";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Appointment() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -17,36 +17,35 @@ export default function Appointment() {
   useEffect(() => {
     const fetchAvailabilities = async () => {
       try {
-        const response = await fetch("/api/booking");  
+        const response = await fetch("/api/booking");
         const data = await response.json();
         console.log("Received availabilities:", data);
-  
-        // Transform timeSlots into a date-keyed structure
-        const transformedAvailabilities: Record<string, any> = {};
-        if (data && data.availabilities) {
-          data.availabilities.forEach((availability: any) => {
-            availability.timeSlots.forEach((slot: any) => {
-              const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
-              if (!transformedAvailabilities[dateKey]) {
-                transformedAvailabilities[dateKey] = {
-                  timeSlots: [],
-                };
-              }
-              transformedAvailabilities[dateKey].timeSlots.push(slot);
-            });
+
+        // Adjust to format the received timeSlotsCache into a usable structure
+        if (data && data.timeSlots) {
+          const transformedAvailabilities: Record<string, any> = {};
+          data.timeSlots.forEach((slot: any) => {
+            const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
+            if (!transformedAvailabilities[dateKey]) {
+              transformedAvailabilities[dateKey] = {
+                timeSlots: [],
+              };
+            }
+            transformedAvailabilities[dateKey].timeSlots.push(slot);
           });
+
+          setAvailabilities(transformedAvailabilities); // Store transformed data
+          console.log("Transformed availabilities:", transformedAvailabilities);
+        } else {
+          setAvailabilities(null); // No timeSlots found
         }
-  
-        setAvailabilities(transformedAvailabilities); // Store transformed data
-        console.log("Transformed availabilities:", transformedAvailabilities);
       } catch (error) {
         console.error("Error fetching availabilities:", error);
       }
     };
-  
+
     fetchAvailabilities();
   }, []);
-  
 
   // Re-render calendar when year, month, or selected date changes
   useEffect(() => {
@@ -58,49 +57,49 @@ export default function Appointment() {
     const calendarElement = document.getElementById("calendar");
     const currentMonthElement = document.getElementById("currentMonth");
     const prevButton = document.getElementById("prevMonth") as HTMLButtonElement;
-  
+
     if (!calendarElement || !currentMonthElement || !prevButton) return;
-  
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-  
+
     const firstDayOfMonth = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-  
+
     calendarElement.innerHTML = "";
     const monthNames = [
       "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "July", "August", "September", "October", "November", "December",
     ];
     currentMonthElement.innerText = `${monthNames[month]} ${year}`;
-  
+
     const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  
+
     // Add headers for days of the week
-    daysOfWeek.forEach(day => {
+    daysOfWeek.forEach((day) => {
       const dayElement = document.createElement("div");
       dayElement.className = "text-center font-semibold text-almost-black text-xs sm:text-base";
       dayElement.innerText = day;
       calendarElement.appendChild(dayElement);
     });
-  
+
     // Add empty slots for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
       const emptyDayElement = document.createElement("div");
       calendarElement.appendChild(emptyDayElement);
     }
-  
+
     // Loop through all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
       const formattedDate = currentDate.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-  
+
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
       dayElement.innerText = String(day);
-  
+
       if (currentDate < today) {
         // Disable past dates
         dayElement.className =
@@ -114,7 +113,7 @@ export default function Appointment() {
         dayElement.className =
           "text-center py-2 border text-gray-300 cursor-not-allowed text-xs sm:text-base";
       }
-  
+
       // Highlight selected date
       if (
         selectedDate &&
@@ -124,10 +123,10 @@ export default function Appointment() {
       ) {
         dayElement.classList.add("bg-blue-200", "text-white");
       }
-  
+
       calendarElement.appendChild(dayElement);
     }
-  
+
     // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
@@ -137,19 +136,18 @@ export default function Appointment() {
       prevButton.classList.remove("opacity-0");
     }
   };
-  
+
   // Handle date selection
   const handleDateSelection = (date: Date) => {
     const formattedDate = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
     setSelectedDate(date);
-  
+
     if (availabilities && availabilities[formattedDate]?.timeSlots) {
       setAvailableTimes(availabilities[formattedDate].timeSlots.map((slot: any) => slot.start)); // Extract start times
     } else {
       setAvailableTimes([]);
     }
   };
-  
 
   // Handle saving the booking
   const handleSave = async () => {
@@ -182,32 +180,73 @@ export default function Appointment() {
 
           <nav className="flex m-8" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
-                <li className="inline-flex items-center">
-                <a href="/patient-tool/landing-page" className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-white">
-                    <svg className="w-3 h-3 me-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z"/>
-                    </svg>
-                    home
+              {/* Breadcrumb navigation */}
+              <li className="inline-flex items-center">
+                <a
+                  href="/patient-tool/landing-page"
+                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-white"
+                >
+                  <svg
+                    className="w-3 h-3 me-2.5"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
+                  </svg>
+                  home
                 </a>
-                </li>
-                <li>
+              </li>
+              <li>
                 <div className="flex items-center">
-                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
-                    </svg>
-                    <a href="/patient-tool/find-care" className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-white">find care</a>
+                  <svg
+                    className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 6 10"
+                  >
+                    <path
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m1 9 4-4-4-4"
+                    />
+                  </svg>
+                  <a
+                    href="/patient-tool/find-care"
+                    className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-white"
+                  >
+                    find care
+                  </a>
                 </div>
-                </li>
-                <li aria-current="page">
+              </li>
+              <li aria-current="page">
                 <div className="flex items-center">
-                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
-                    </svg>
-                    <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">find appointment</span>
+                  <svg
+                    className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 6 10"
+                  >
+                    <path
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m1 9 4-4-4-4"
+                    />
+                  </svg>
+                  <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">
+                    find appointment
+                  </span>
                 </div>
-                </li>
+              </li>
             </ol>
-            </nav>
+          </nav>
 
           <SubBackground>
             <div className="flex items-center justify-center hover:max-h-screen ">
@@ -220,9 +259,9 @@ export default function Appointment() {
                       onClick={() => {
                         if (currentMonth === 0) {
                           setCurrentMonth(11);
-                          setCurrentYear(prev => prev - 1);
+                          setCurrentYear((prev) => prev - 1);
                         } else {
-                          setCurrentMonth(prev => prev - 1);
+                          setCurrentMonth((prev) => prev - 1);
                         }
                       }}
                     >
@@ -235,9 +274,9 @@ export default function Appointment() {
                       onClick={() => {
                         if (currentMonth === 11) {
                           setCurrentMonth(0);
-                          setCurrentYear(prev => prev + 1);
+                          setCurrentYear((prev) => prev + 1);
                         } else {
-                          setCurrentMonth(prev => prev + 1);
+                          setCurrentMonth((prev) => prev + 1);
                         }
                       }}
                     >
@@ -251,7 +290,9 @@ export default function Appointment() {
 
             {selectedDate && (
               <div className="p-4">
-                <h3 className="text-lg font-semibold text-main-blue">selected date: {selectedDate.toDateString()}</h3>
+                <h3 className="text-lg font-semibold text-main-blue">
+                  selected date: {selectedDate.toDateString()}
+                </h3>
                 <h4 className="text-md font-medium text-main-blue mt-4">select a time:</h4>
                 <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                   {availableTimes.map((time) => (
