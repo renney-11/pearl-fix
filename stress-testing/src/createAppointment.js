@@ -70,6 +70,29 @@ export default function () {
     console.error("Availability Creation failed:", createAvailabilityRes.body);
   } else {
     console.log("Availability Created Successfully!");
+
+    // Now, fetch the created availability using the dentistId
+    const dentistId = "6761e1b62050fba8fa2932c0";  // The dentist ID to be tested
+
+    const getAvailabilityRes = http.get(
+      `http://localhost:7000/api/v1/availability/${dentistId}`,  // The URL to get availability
+      { headers: { "Content-Type": "application/json" } }  // Set the content type
+    );
+
+    console.log("Get Availability Response Status:", getAvailabilityRes.status);
+    console.log("Get Availability Response Body:", getAvailabilityRes.body);
+
+    // Check response for fetching availability
+    check(getAvailabilityRes, {
+      "availability fetched successfully": (r) => r.status === 200,
+      "availability found": (r) => r.body.includes("availability"),  // Check if the response contains the word 'availability'
+    });
+
+    if (getAvailabilityRes.status !== 200) {
+      console.error("Get Availability failed:", getAvailabilityRes.body);
+    } else {
+      console.log("Get Availability Success!");
+    }
   }
 
   sleep(1);  // Simulate a 1-second delay between iterations
