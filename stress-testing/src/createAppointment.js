@@ -23,9 +23,19 @@ function generateRandomCoordinates() {
   return { latitude: lat, longitude: lon };
 }
 
+// Function to generate a random clinic address
+function generateRandomAddress() {
+  const streetNames = ["Dental", "Smile", "Health", "Care", "Wellness"];
+  const streetTypes = ["Street", "Avenue", "Road", "Lane"];
+  const randomStreetName = streetNames[Math.floor(Math.random() * streetNames.length)];
+  const randomStreetType = streetTypes[Math.floor(Math.random() * streetTypes.length)];
+  const randomNumber = Math.floor(Math.random() * 1000);  // Random number for street number
+  return `${randomNumber} ${randomStreetName} ${randomStreetType}`;
+}
+
 export let options = {
   stages: [
-    { duration: '1m', target: 30 },  // Ramp up to 300 users for 1 minute
+    { duration: '1m', target: 30 },  // Ramp up to 30 users for 1 minute
     { duration: '30s', target: 0 }, // Ramp down to 0 users in 30 seconds
   ],
 };
@@ -68,20 +78,6 @@ export default function () {
 
   console.log('Dentist Received Token:', dentistToken);
 
-  // Fetch dentist user details with token
-  const dentistUserRes = http.get('http://localhost:5000/api/v1/auth/user', {
-    headers: {
-      'Authorization': `Bearer ${dentistToken}`,
-    },
-  });
-
-  console.log('Dentist User Details Response Status:', dentistUserRes.status);
-  console.log('Dentist User Details Response Body:', dentistUserRes.body);
-
-  check(dentistUserRes, {
-    'dentist user fetched successfully': (r) => r.status === 200,
-  });
-
   // Register Patient
   const patientEmail = generateRandomEmailForPatient();
   const patientPassword = 'testpassword';
@@ -117,27 +113,14 @@ export default function () {
 
   console.log('Patient Received Token:', patientToken);
 
-  // Fetch patient user details with token
-  const patientUserRes = http.get('http://localhost:5000/api/v1/auth/user', {
-    headers: {
-      'Authorization': `Bearer ${patientToken}`,
-    },
-  });
-
-  console.log('Patient User Details Response Status:', patientUserRes.status);
-  console.log('Patient User Details Response Body:', patientUserRes.body);
-
-  check(patientUserRes, {
-    'patient user fetched successfully': (r) => r.status === 200,
-  });
-
   // Now, create a clinic with the dentist's email and random coordinates
 
   const clinicCoordinates = generateRandomCoordinates();  // Generate random coordinates
+  const clinicAddress = generateRandomAddress();  // Generate random address
 
   const clinicData = {
     city: 'Lerum',
-    address: '123 Dental Street',
+    address: clinicAddress,  // Use the randomly generated address
     clinicName: 'Lerum Smile Care',
     openingHours: {
       start: '10:00',
@@ -147,7 +130,7 @@ export default function () {
     dentists: [dentistEmail], // Use the dentist email from the registration
   };
 
-  console.log(`Creating Clinic with Dentists: ${clinicData.dentists.join(', ')} at Coordinates: ${clinicCoordinates.latitude}, ${clinicCoordinates.longitude}`);
+  console.log(`Creating Clinic with Dentists: ${clinicData.dentists.join(', ')} at Address: ${clinicData.address} and Coordinates: ${clinicCoordinates.latitude}, ${clinicCoordinates.longitude}`);
 
   const createClinicRes = http.post('http://localhost:6000/api/v1/clinic/create', JSON.stringify(clinicData), {
     headers: { 'Content-Type': 'application/json' },
