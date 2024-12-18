@@ -7,6 +7,7 @@ import { IPatient } from "../models/Patient";
 import { IDentist } from "../models/Dentist";
 import { validateFields, validateStringLength, validateEmailFormat, validateNameHasSpace } from "../middlewares/validators";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
+import { jwtDecrypt } from "jose";
 
 declare global {
   namespace Express {
@@ -397,6 +398,57 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       process.exit(1);
     }
   });
+
+  await mqttHandler.subscribe("pearl-fix/authentication/verify-dentist", async (msg) => {
+    try {
+      const message = JSON.parse(msg.toString());
+      console.log("Received MQTT message on 'pearl-fix/authentication/verify-dentist':", message);
+  
+      // Extract the token from the message
+      const token = message.token;
+  
+      if (!token) {
+        console.error("No token provided in the message.");
+        return;
+      }
+  
+      // Here you can add your token validation logic
+      const decoded = await validateToken(token); // You need to implement this function
+      if (!decoded) {
+        console.error("Invalid token.");
+        return;
+      }
+  
+      const { id, type } = decoded;
+  
+      // Fetch the user based on the decoded token's id and type
+      let user;
+      if (type === "patient") {
+        user = await Patient.findById(id).select("-password");
+      } else if (type === "dentist") {
+        user = await Dentist.findById(id).select("-password");
+      }
+  
+      if (!user) {
+        console.error(`User with ID ${id} not found.`);
+        return;
+      }
+  
+      // Now you can perform further logic with the validated user
+      console.log("User verified:", user);
+      await mqttHandler.publish(
+        "pearl-fix/authentication/verify-dentist/email",
+        JSON.stringify({ success: true, email: user.email })
+      );
+    } catch (error) {
+      console.error("Error processing verify dentist message:", error);
+    }
+  });
+  
+  function getStoredTokenForUser(id: any) {
+    throw new Error("Function not implemented.");
+  }
+  
   
 })();
 
@@ -593,6 +645,10 @@ export const login: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to login users" });
 };
 
+export const getCurrentUser: RequestHandler = async (req, res): Promise<void> => {
+  res.status(405).json({ message: "Use the message queue to getCurrent users" });
+};
+
 export const registerDentist: RequestHandler = async (req, res): Promise<void> => {
   console.log('Received request to register dentist'); // Debug log
   const { name, email, password, fikaBreak, lunchBreak } = req.body;
@@ -632,26 +688,19 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
-export const getCurrentUser: RequestHandler = async (req, res): Promise<void> => {
+// Function to validate the token and decode it (you need to implement this based on your auth system)
+async function validateToken(token: string) {
   try {
-    if (!req.user) {
-      res.status(401).json({ message: "Not authenticated" });
-      return;
-    }
+    // Ensure your JWT secret key is a Buffer and is properly decoded
+    const secretKey = Buffer.from(process.env.JWT_SECRET!, 'base64');  // This assumes your secret is base64 encoded.
 
-    const user =
-      req.user.type === "patient"
-        ? await Patient.findById(req.user.id).select("-password")
-        : await Dentist.findById(req.user.id).select("-password");
+    // Use jwtDecrypt from 'jose' to validate and decode the JWT
+    const { payload } = await jwtDecrypt(token, secretKey);
 
-    if (!user) {
-      res.status(404).json({ message: "User not found" });
-      return;
-    }
-
-    res.status(200).json(user);
+    // Return the decoded payload (which includes user data)
+    return payload;
   } catch (error) {
-    console.error("Error fetching user details:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Token validation failed:", error);
+    return null;
   }
-};
+}

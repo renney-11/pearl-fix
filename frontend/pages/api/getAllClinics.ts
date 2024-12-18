@@ -39,14 +39,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     channel.sendToQueue(getAllClinicsQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
-    console.log("Published message to request all clinics");
 
     const responseQueue = "pearl-fix/clinic/all-data";
     await channel.assertQueue(responseQueue, { durable: true });
 
-    console.log("Waiting for clinic data...");
+    // Log that we are subscribing to the queue
+    console.log("Subscribed to queue:", responseQueue);
 
-    // Wait for the response message
+    // Wait for the response message and get the latest clinic data
     const clinicsData = await new Promise<Clinic[]>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (channel) channel.close();
@@ -54,29 +54,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         reject("Timeout waiting for clinic data.");
       }, 10000); // 10 seconds timeout
 
-      const allClinics: Clinic[] = []; // Define this as an array of Clinic objects
-
       channel?.consume(
         responseQueue,
         (msg: ConsumeMessage | null) => {
           if (msg !== null) {
             const message = JSON.parse(msg.content.toString());
-            console.log("Received clinic data:", message.clinics);
+            
+            // Log the clinics received
+            console.log("Clinics received from 'pearl-fix/clinic/all-data':", message.clinics);
 
-            // Add the clinics data to the array
-            allClinics.push(...message.clinics);
-
-            // If we expect all clinic data in one message, resolve the promise here
-            clearTimeout(timeout);
-            resolve(allClinics); // Resolve with all the clinics received
+            // Discard any old messages (optional: check for timestamp or other deduplication logic)
+            if (message.clinics.length > 0) {
+              clearTimeout(timeout);
+              resolve(message.clinics); // Resolve with the new clinic data
+              channel?.ack(msg); // Acknowledge the message (mark it as processed)
+            }
           }
         },
-        { noAck: false }
+        { noAck: false } // Acknowledge messages manually (helps prevent duplicates)
       );
     });
 
-    // Respond with the clinics data
-    res.status(200).json({ clinics: clinicsData });
+    // If clinicsData is empty, handle it appropriately
+    if (!clinicsData || clinicsData.length === 0) {
+      return res.status(404).json({ error: "No clinics found" });
+    }
+
+    // Process clinics data asynchronously (adding extra details if needed)
+    const processedClinics = await Promise.all(
+      clinicsData.map(async (clinic) => {
+        // Example of async processing: adding extra details
+        const extraDetails = await fetchExtraDetails(clinic._id); // Example async function
+        return { ...clinic, extraDetails };
+      })
+    );
+
+    // Respond with the processed clinics data
+    res.status(200).json({ clinics: processedClinics });
 
   } catch (error) {
     console.error("Error:", error);
@@ -90,4 +104,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error("Error closing connection/channel:", error);
     }
   }
+}
+
+// Example async function to fetch additional clinic details
+async function fetchExtraDetails(clinicId: string) {
+  // Simulate fetching extra details
+  return new Promise((resolve) =>
+    setTimeout(() => resolve({ rating: 4.5, reviews: 120 }), 100)
+  );
 }
