@@ -179,7 +179,7 @@ const Map: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           console.log("Booking successful:", data);
-  
+          //sessionStorage.setItem("chosenClinic", clinicId)
           // Navigate to the find-appointment page
           router.push("/patient-tool/find-appointment");
         } else {

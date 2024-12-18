@@ -17,11 +17,14 @@ export default function Appointment() {
   useEffect(() => {
     const fetchAvailabilities = async () => {
       try {
-        const response = await fetch("/api/booking");
+        const response = await fetch("/api/booking", {
+          method: "GET",
+          headers: { "Cache-Control": "no-store" }, // Ensure fresh data
+        });
         const data = await response.json();
         console.log("Received availabilities:", data);
 
-        // Adjust to format the received timeSlotsCache into a usable structure
+        // Transform timeSlots into a date-keyed structure
         if (data && data.timeSlots) {
           const transformedAvailabilities: Record<string, any> = {};
           data.timeSlots.forEach((slot: any) => {
@@ -37,7 +40,7 @@ export default function Appointment() {
           setAvailabilities(transformedAvailabilities); // Store transformed data
           console.log("Transformed availabilities:", transformedAvailabilities);
         } else {
-          setAvailabilities(null); // No timeSlots found
+          setAvailabilities(null); // No availabilities found
         }
       } catch (error) {
         console.error("Error fetching availabilities:", error);
@@ -45,12 +48,13 @@ export default function Appointment() {
     };
 
     fetchAvailabilities();
-  }, []);
+  }, []); // Only on mount
 
-  // Re-render calendar when year, month, or selected date changes
+  // Re-render calendar when year, month, or availabilities change
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
-  }, [currentYear, currentMonth, selectedDate]);
+  }, [currentYear, currentMonth, availabilities]); // Trigger on availabilities change
+
 
   // Generate the calendar for a given year and month
   const generateCalendar = (year: number, month: number) => {
@@ -137,13 +141,14 @@ export default function Appointment() {
     }
   };
 
+
   // Handle date selection
   const handleDateSelection = (date: Date) => {
-    const formattedDate = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+    const formattedDate = date.toISOString().split("T")[0];
     setSelectedDate(date);
 
     if (availabilities && availabilities[formattedDate]?.timeSlots) {
-      setAvailableTimes(availabilities[formattedDate].timeSlots.map((slot: any) => slot.start)); // Extract start times
+      setAvailableTimes(availabilities[formattedDate].timeSlots.map((slot: any) => slot.start));
     } else {
       setAvailableTimes([]);
     }
