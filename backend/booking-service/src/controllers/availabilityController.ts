@@ -219,7 +219,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 })();
 
 export const createAvailability: RequestHandler = async (req, res): Promise<void> => {
-  const { dentist, workDays, timeSlots, date } = req.body;
+  const { dentist, workDays, timeSlots, date, clinicId } = req.body;
 
   try {
     await mqttHandler.connect();
@@ -296,6 +296,7 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
       dentist: dentistId,
       workDays,
       timeSlots: formattedTimeSlots,
+      clinicId,  // Add clinicId to the availability document
     });
 
     // Save availability document to DB
@@ -308,6 +309,7 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
         dentist: dentistId,
         workDays: availability.workDays,
         timeSlots: formattedTimeSlots,
+        clinicId,  // Return the clinicId in the response
       },
     });
     console.log("Availability created:", availability);
@@ -322,8 +324,6 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
   } catch (error) {
     console.error("Error creating availability:", error);
     res.status(500).json({ message: "Server error." });
-  } finally {
-    mqttHandler.close();
   }
 };
 
