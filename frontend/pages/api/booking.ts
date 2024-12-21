@@ -1,14 +1,9 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel } from "amqplib";
 
-let timeSlotsCache: { clinicId: string | null; timeSlots: any[] } = {
-  clinicId: null,
-  timeSlots: [],
-};
+let availabilityData: any = null; // Store the data directly from the response topic
 
-let isCacheUpdated = false; // Tracks if the cache has been updated
-
-// Function to handle subscribing to the RabbitMQ queue for availabilities
+// Function to handle subscribing to the RabbitMQ queue for availabilities (clinic/all)
 async function subscribeToAvailabilitiesQueue() {
   try {
     const connection = await amqp.connect(
@@ -27,9 +22,9 @@ async function subscribeToAvailabilitiesQueue() {
             const data = JSON.parse(msg.content.toString());
             console.log("Message received on 'pearl-fix/availability/clinic/all':", data);
 
+            // If the response is valid, update the availability data
             if (data.status === "success" && Array.isArray(data.timeSlots)) {
-              // Update the cache with new data
-              timeSlotsCache = {
+              availabilityData = {
                 clinicId: data.clinicId || null,
                 timeSlots: data.timeSlots.map((slot: any) => ({
                   start: new Date(slot.start).toISOString(),
@@ -37,8 +32,7 @@ async function subscribeToAvailabilitiesQueue() {
                   status: slot.status,
                 })),
               };
-              isCacheUpdated = true; // Mark cache as updated
-              console.log("Updated timeSlotsCache:", timeSlotsCache);
+              console.log("Updated availabilityData:", availabilityData);
             }
 
             channel.ack(msg); // Acknowledge the message
@@ -50,19 +44,72 @@ async function subscribeToAvailabilitiesQueue() {
       { noAck: false }
     );
   } catch (error) {
-    console.error("Error subscribing to availabilities queue:", error);
+    console.error("Error subscribing to availability all queue:", error);
   }
 }
 
-// Run the RabbitMQ subscription on server startup
+// Function to handle subscribing to the RabbitMQ queue for clinic-id responses
+async function subscribeToClinicIdResponseQueue() {
+  try {
+    const connection = await amqp.connect(
+      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
+    );
+    const channel = await connection.createChannel();
+
+    const availabilityClinicIdResponseQueue = "pearl-fix/availability/clinic-id/response";
+    await channel.assertQueue(availabilityClinicIdResponseQueue, { durable: true });
+
+    channel.consume(
+      availabilityClinicIdResponseQueue,
+      (msg) => {
+        if (msg) {
+          try {
+            const data = JSON.parse(msg.content.toString());
+            console.log("Message received on 'pearl-fix/availability/clinic-id/response':", data);
+
+            // If the response is valid, update the availability data
+            if (data.status === "success" && data.clinicId) {
+              availabilityData = {
+                clinicId: data.clinicId,
+                timeSlots: data.availability.map((slot: any) => ({
+                  start: new Date(slot.start).toISOString(),
+                  end: new Date(slot.end).toISOString(),
+                  status: slot.status,
+                })),
+              };
+              console.log("Updated availabilityData from response:", availabilityData);
+            }
+
+            channel.ack(msg); // Acknowledge the message
+          } catch (error) {
+            console.error("Error parsing message:", error);
+          }
+        }
+      },
+      { noAck: false }
+    );
+  } catch (error) {
+    console.error("Error subscribing to availability clinic-id response queue:", error);
+  }
+}
+
+// Run the RabbitMQ subscriptions on server startup
 subscribeToAvailabilitiesQueue().catch((error) =>
-  console.error("Subscription failed:", error)
+  console.error("Subscription failed for 'pearl-fix/availability/clinic/all':", error)
+);
+
+subscribeToClinicIdResponseQueue().catch((error) =>
+  console.error("Subscription failed for 'pearl-fix/availability/clinic-id/response':", error)
 );
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
-    // If cache hasn't been updated, return the cached data (even if empty)
-    res.status(200).json(timeSlotsCache);
+    // Directly return the availability data from the response topic, not the cache
+    if (availabilityData) {
+      res.status(200).json(availabilityData);
+    } else {
+      res.status(200).json({ message: "No availability data received yet." });
+    }
 
   } else if (req.method === "POST") {
     const { clinicId, date, time } = req.body;
@@ -80,17 +127,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
       channel = await connection.createChannel();
 
+      // Publish clinicId to 'pearl-fix/availability/clinic-id'
       const availabilityQueue = "pearl-fix/availability/clinic-id";
       await channel.assertQueue(availabilityQueue, { durable: true });
 
-      // Send clinicId to the queue
       channel.sendToQueue(
         availabilityQueue,
         Buffer.from(JSON.stringify({ clinicId })),
-        { persistent: true }
+        { persistent: true } // Ensure the message is persistent
       );
       console.log("ClinicID sent to availability queue:", clinicId);
 
+      // Optionally handle booking if 'date' and 'time' are provided
       if (date && time) {
         const bookingQueue = "pearl-fix/booking/date-time";
         await channel.assertQueue(bookingQueue, { durable: true });
@@ -103,27 +151,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log("Booking published:", payload);
       }
 
-      // Simulate saving the time slots if available
-      if (clinicId) {
-        // Here we just mock the availability data to simulate the change in cache
-        timeSlotsCache = {
-          clinicId: clinicId,
-          timeSlots: [
-            {
-              start: new Date().toISOString(),
-              end: new Date(new Date().getTime() + 30 * 60 * 1000).toISOString(),
-              status: "available",
-            },
-            {
-              start: new Date(new Date().getTime() + 60 * 60 * 1000).toISOString(),
-              end: new Date(new Date().getTime() + 90 * 60 * 1000).toISOString(),
-              status: "available",
-            },
-          ],
-        };
-        isCacheUpdated = true;
-        console.log("Time slots updated in cache after POST:", timeSlotsCache);
-      }
+      // Publish clinicId to 'pearl-fix/availability/get/clinic-id'
+      const getAvailabilityQueue = "pearl-fix/availability/get/clinic-id";
+      await channel.assertQueue(getAvailabilityQueue, { durable: true });
+
+      channel.sendToQueue(
+        getAvailabilityQueue,
+        Buffer.from(JSON.stringify({ clinicId })),
+        { persistent: true } // Ensure the message is persistent
+      );
+      console.log("ClinicID sent to get availability queue:", clinicId);
 
       res.status(200).json({ message: "Clinic ID and booking information sent." });
     } catch (error) {
