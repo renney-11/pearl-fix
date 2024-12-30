@@ -175,11 +175,9 @@ const Map: React.FC = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clinicId }), // Send clinicId as the payload
         });
-  
         if (response.ok) {
           const data = await response.json();
           console.log("Booking successful:", data);
-          //sessionStorage.setItem("chosenClinic", clinicId)
           // Navigate to the find-appointment page
           router.push("/patient-tool/find-appointment");
         } else {
@@ -191,7 +189,7 @@ const Map: React.FC = () => {
         alert("An error occurred. Please try again later.");
       }
     };
-
+    
     return (
       <>
         {clinics.map((clinic, index) => {

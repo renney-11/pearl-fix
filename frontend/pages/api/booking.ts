@@ -1,19 +1,19 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel } from "amqplib";
 
-let availabilityData: any = null; // Store the data directly from the response topic
+// Initial cache setup
+let timeSlotsCache: { clinicId: string | null; timeSlots: any[] } = {
+  clinicId: null,
+  timeSlots: [],
+};
 
-// Function to handle subscribing to the RabbitMQ queue for availabilities (clinic/all)
-async function subscribeToAvailabilitiesQueue() {
-  try {
-    const connection = await amqp.connect(
-      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-    );
-    const channel = await connection.createChannel();
+// Function to handle subscribing to the RabbitMQ queue for availabilities
+async function subscribeToAvailabilitiesQueue(channel: Channel) {
+  const availabilityAllQueue = "pearl-fix/availability/clinic/all";
+  await channel.assertQueue(availabilityAllQueue, { durable: true });
 
-    const availabilityAllQueue = "pearl-fix/availability/clinic/all";
-    await channel.assertQueue(availabilityAllQueue, { durable: true });
-
+  // Promise to wait for the updated time slots
+  return new Promise<void>((resolve, reject) => {
     channel.consume(
       availabilityAllQueue,
       (msg) => {
@@ -22,9 +22,9 @@ async function subscribeToAvailabilitiesQueue() {
             const data = JSON.parse(msg.content.toString());
             console.log("Message received on 'pearl-fix/availability/clinic/all':", data);
 
-            // If the response is valid, update the availability data
             if (data.status === "success" && Array.isArray(data.timeSlots)) {
-              availabilityData = {
+              // Update the cache with new data
+              timeSlotsCache = {
                 clinicId: data.clinicId || null,
                 timeSlots: data.timeSlots.map((slot: any) => ({
                   start: new Date(slot.start).toISOString(),
@@ -32,85 +32,48 @@ async function subscribeToAvailabilitiesQueue() {
                   status: slot.status,
                 })),
               };
-              console.log("Updated availabilityData:", availabilityData);
+
+              console.log("Updated timeSlotsCache:", timeSlotsCache);
+              resolve();
             }
 
             channel.ack(msg); // Acknowledge the message
           } catch (error) {
             console.error("Error parsing message:", error);
+            reject(error);
           }
         }
       },
       { noAck: false }
     );
-  } catch (error) {
-    console.error("Error subscribing to availability all queue:", error);
-  }
+  });
 }
 
-// Function to handle subscribing to the RabbitMQ queue for clinic-id responses
-async function subscribeToClinicIdResponseQueue() {
-  try {
-    const connection = await amqp.connect(
-      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-    );
-    const channel = await connection.createChannel();
-
-    const availabilityClinicIdResponseQueue = "pearl-fix/availability/clinic-id/response";
-    await channel.assertQueue(availabilityClinicIdResponseQueue, { durable: true });
-
-    channel.consume(
-      availabilityClinicIdResponseQueue,
-      (msg) => {
-        if (msg) {
-          try {
-            const data = JSON.parse(msg.content.toString());
-            console.log("Message received on 'pearl-fix/availability/clinic-id/response':", data);
-
-            // If the response is valid, update the availability data
-            if (data.status === "success" && data.clinicId) {
-              availabilityData = {
-                clinicId: data.clinicId,
-                timeSlots: data.availability.map((slot: any) => ({
-                  start: new Date(slot.start).toISOString(),
-                  end: new Date(slot.end).toISOString(),
-                  status: slot.status,
-                })),
-              };
-              console.log("Updated availabilityData from response:", availabilityData);
-            }
-
-            channel.ack(msg); // Acknowledge the message
-          } catch (error) {
-            console.error("Error parsing message:", error);
-          }
-        }
-      },
-      { noAck: false }
-    );
-  } catch (error) {
-    console.error("Error subscribing to availability clinic-id response queue:", error);
-  }
+// Function to initialize the RabbitMQ connection
+async function getAmqpChannel() {
+  const connection = await amqp.connect(
+    "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
+  );
+  const channel = await connection.createChannel();
+  return channel;
 }
-
-// Run the RabbitMQ subscriptions on server startup
-subscribeToAvailabilitiesQueue().catch((error) =>
-  console.error("Subscription failed for 'pearl-fix/availability/clinic/all':", error)
-);
-
-subscribeToClinicIdResponseQueue().catch((error) =>
-  console.error("Subscription failed for 'pearl-fix/availability/clinic-id/response':", error)
-);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "GET") {
-    // Directly return the availability data from the response topic, not the cache
-    if (availabilityData) {
-      res.status(200).json(availabilityData);
-    } else {
-      res.status(200).json({ message: "No availability data received yet." });
-    }
+    try {
+      const channel = await getAmqpChannel();
 
+      // Wait for the availability message to update the cache
+      await subscribeToAvailabilitiesQueue(channel);
+
+      console.log("Returning updated timeSlotsCache:", timeSlotsCache);
+      res.status(200).json(timeSlotsCache);
+
+      // Close the channel after the request is handled
+    } catch (error) {
+      console.error("Error processing GET request:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   } else if (req.method === "POST") {
     const { clinicId, date, time } = req.body;
 
@@ -127,18 +90,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
       channel = await connection.createChannel();
 
-      // Publish clinicId to 'pearl-fix/availability/clinic-id'
       const availabilityQueue = "pearl-fix/availability/clinic-id";
       await channel.assertQueue(availabilityQueue, { durable: true });
 
+      // Send clinicId to the queue
       channel.sendToQueue(
         availabilityQueue,
         Buffer.from(JSON.stringify({ clinicId })),
-        { persistent: true } // Ensure the message is persistent
+        { persistent: true }
       );
       console.log("ClinicID sent to availability queue:", clinicId);
 
-      // Optionally handle booking if 'date' and 'time' are provided
       if (date && time) {
         const bookingQueue = "pearl-fix/booking/date-time";
         await channel.assertQueue(bookingQueue, { durable: true });
@@ -151,16 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log("Booking published:", payload);
       }
 
-      // Publish clinicId to 'pearl-fix/availability/get/clinic-id'
-      const getAvailabilityQueue = "pearl-fix/availability/get/clinic-id";
-      await channel.assertQueue(getAvailabilityQueue, { durable: true });
-
-      channel.sendToQueue(
-        getAvailabilityQueue,
-        Buffer.from(JSON.stringify({ clinicId })),
-        { persistent: true } // Ensure the message is persistent
-      );
-      console.log("ClinicID sent to get availability queue:", clinicId);
+      // Simulate slower POST request by adding a delay
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Delay for 1 second
 
       res.status(200).json({ message: "Clinic ID and booking information sent." });
     } catch (error) {

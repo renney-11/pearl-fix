@@ -13,6 +13,7 @@ export default function Appointment() {
   const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
   const router = useRouter();
 
+
   // Fetch availabilities on component mount
   useEffect(() => {
     const fetchAvailabilities = async () => {
@@ -49,6 +50,7 @@ export default function Appointment() {
 
     fetchAvailabilities();
   }, []); // Only on mount
+
 
   // Re-render calendar when year, month, or availabilities change
   useEffect(() => {
