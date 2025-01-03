@@ -198,14 +198,15 @@ export default function Booking() {
               <p className="text-xl font-bold text-main-blue p-4">
                 Time: {selectedTime || "Loading..."}
               </p>
-              <p className="text-xl font-bold text-main-blue p-4">Dentist: </p>
               <p className="text-xl font-bold text-main-blue p-4">
                 Clinic: {selectedClinicName || "Loading..."} 
               </p>
               <p className="text-xl font-bold text-main-blue p-4">
                 Address: {selectedClinicAddress || "Loading..."} 
               </p>
-              <p className="text-xl font-bold text-main-blue p-4">Your Details: </p>
+              <p className="text-xl font-bold text-main-blue p-4">
+                Your Email: {selectedUser || "Loading..."} 
+              </p>
             </div>
             <div className="flex items-center justify-center mt-4">
               <button

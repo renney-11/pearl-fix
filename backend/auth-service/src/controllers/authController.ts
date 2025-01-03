@@ -706,18 +706,16 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
-// Function to validate the token and decode it (you need to implement this based on your auth system)
-// Function to validate the token and decode it
 async function validateToken(token: string) {
   try {
-    // Decode the JWT and disable the expiration check
+    // Ensure your JWT secret key is a Buffer and is properly decoded
     const secretKey = Buffer.from(process.env.JWT_SECRET!, 'base64');  // This assumes your secret is base64 encoded.
 
-    // Use jwtVerify with appropriate key type (Buffer -> Uint8Array)
-    const { payload } = await jwtVerify(token, secretKey as Uint8Array);
+    // Use jwtDecrypt from 'jose' to validate and decode the JWT
+    const { payload } = await jwtDecrypt(token, secretKey);
 
-    // Return the decoded payload
-    return payload as JWTPayload;
+    // Return the decoded payload (which includes user data)
+    return payload;
   } catch (error) {
     console.error("Token validation failed:", error);
     return null;

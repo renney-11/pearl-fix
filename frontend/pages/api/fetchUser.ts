@@ -52,33 +52,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await setupQueue(responseQueue);
 
     let emailReceived = false;
+
+    // Create a timeout to handle errors if no email is received
     const timeout = setTimeout(() => {
       if (!emailReceived) {
         console.error("Timeout waiting for email.");
         res.status(500).json({ error: "Failed to receive email." });
-        channel?.close();
-        connection?.close();
+        cleanup();
       }
     }, 10000); // 10 seconds timeout
 
+    // Consume messages from the response queue
     await consumeQueue(responseQueue, (msg) => {
       if (msg) {
         const message = JSON.parse(msg.content.toString());
         if (message.email) {
           console.log("Email received:", message.email);
           emailReceived = true;
-          clearTimeout(timeout); // Clear timeout
+          clearTimeout(timeout); // Clear the timeout once we receive the email
           channel.ack(msg); // Acknowledge the message
           res.status(200).json({ email: message.email });
-          channel.close();
-          connection.close();
+          cleanup();
         }
       }
     });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error." });
-    if (channel) await channel.close();
-    if (connection) await connection.close();
+    cleanup();
+  }
+
+  // Helper function to clean up connections and channels
+  function cleanup() {
+    if (channel) {
+      channel.close().catch(console.error); // Close the channel
+    }
+    if (connection) {
+      connection.close().catch(console.error); // Close the connection
+    }
   }
 }
