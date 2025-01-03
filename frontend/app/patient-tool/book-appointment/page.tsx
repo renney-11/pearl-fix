@@ -7,14 +7,30 @@ import { useState, useEffect } from "react";
 export default function Booking() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedDentist, setSelectedDentist] = useState<string | null>(null);
+  const [selectedClinicName, setSelectedClinicName] = useState<string | null>(null);
+  const [selectedClinicAddress, setSelectedClinicAddress] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+
+
+
 
   // Retrieve date and time from sessionStorage
   useEffect(() => {
     const storedDate = sessionStorage.getItem("selectedDate");
     const storedTime = sessionStorage.getItem("selectedTime");
+    const storedDentist = sessionStorage.getItem("dentist");
+    const storedClinicName = sessionStorage.getItem("clinicName");
+    const storedClinicAddress = sessionStorage.getItem("clinicAddress");
+    const storedUser = sessionStorage.getItem("authToken");
 
     if (storedDate) setSelectedDate(new Date(storedDate).toDateString());
     if (storedTime) setSelectedTime(storedTime);
+    if(storedDentist) setSelectedDentist(storedDentist);
+    if(storedClinicName) setSelectedClinicName(storedClinicName);
+    if(storedClinicAddress) setSelectedClinicAddress(storedClinicAddress);
+    if(storedUser) setSelectedUser(storedUser);
+
   }, []);
 
   return (
@@ -130,8 +146,13 @@ export default function Booking() {
                 Time: {selectedTime || "Loading..."}
               </p>
               <p className="text-xl font-bold text-main-blue p-4">Dentist: </p>
-              <p className="text-xl font-bold text-main-blue p-4">Clinic: </p>
-              <p className="text-xl font-bold text-main-blue p-4">Address: </p>
+              <p className="text-xl font-bold text-main-blue p-4">
+                Clinic: {selectedClinicName || "Loading..."} 
+              </p>
+              <p className="text-xl font-bold text-main-blue p-4">
+                Address: {selectedClinicAddress || "Loading..."} 
+              </p>
+              <p className="text-xl font-bold text-main-blue p-4">Your Details: </p>
             </div>
             <div className="flex items-center justify-center mt-4">
               <button

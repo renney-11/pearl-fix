@@ -168,7 +168,7 @@ const Map: React.FC = () => {
       });
     };
 
-    const handleBookNow = async (clinicId: string) => {
+    const handleBookNow = async (clinicId: string, clinicName: string, clinicAddress: string) => {
       try {
         const response = await fetch("/api/booking", {
           method: "POST",
@@ -178,6 +178,8 @@ const Map: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           console.log("Booking successful:", data);
+          sessionStorage.setItem("clinicName", clinicName);
+          sessionStorage.setItem("clinicAddress", clinicAddress);
           // Navigate to the find-appointment page
           router.push("/patient-tool/find-appointment");
         } else {
@@ -226,7 +228,7 @@ const Map: React.FC = () => {
                     </button>
                     <button
                       className="bg-green-600 text-white py-1 px-3 rounded-md text-sm hover:bg-green-700"
-                      onClick={() => handleBookNow(clinic._id)}
+                      onClick={() => handleBookNow(clinic._id, clinic.clinicName, clinic.address)}
                     >
                       Book Now
                     </button>
