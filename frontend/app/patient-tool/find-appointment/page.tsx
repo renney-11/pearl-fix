@@ -13,6 +13,8 @@ export default function Appointment() {
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
   const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
+  const [dentistId, setDentistId] = useState<string | null>(null);
+  const [clinicId, setClinicId] = useState<string | null>(null);   
   const router = useRouter();
 
 
@@ -30,6 +32,8 @@ export default function Appointment() {
         // Transform timeSlots into a date-keyed structure
         if (data && data.timeSlots) {
           const transformedAvailabilities: Record<string, any> = {};
+          let extractedDentistId: string | null = null;
+
           data.timeSlots.forEach((slot: any) => {
             const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
             if (!transformedAvailabilities[dateKey]) {
@@ -37,13 +41,21 @@ export default function Appointment() {
                 timeSlots: [],
               };
             }
+            if (!extractedDentistId && slot.dentist) {
+              extractedDentistId = slot.dentist;
+            }
             transformedAvailabilities[dateKey].timeSlots.push(slot);
           });
 
           setAvailabilities(transformedAvailabilities); // Store transformed data
+          setDentistId(extractedDentistId || null);
+          setClinicId(data.clinicId);
           console.log("Transformed availabilities:", transformedAvailabilities);
         } else {
           setAvailabilities(null); // No availabilities found
+          setDentistId(null);
+          setClinicId(null);
+          console.error("No availabilities found or invalid response format.");
         }
       } catch (error) {
         console.error("Error fetching availabilities:", error);
@@ -195,11 +207,18 @@ export default function Appointment() {
 
   // Handle saving the booking
   const handleSave = async () => {
-    if (!selectedDate || !selectedTime) return;
+    console.log("Selected Date:", selectedDate);
+    console.log("Selected Time:", selectedTime);
+    console.log("Dentist ID:", dentistId);
+    console.log("Clinic ID:", clinicId);
+    
+    if (!selectedDate || !selectedTime || !dentistId || !clinicId) return;
   
     const payload = {
       date: selectedDate.toISOString(),
       time: selectedTime,
+      dentistId,
+      clinicId,
     };
   
     try {
@@ -212,6 +231,9 @@ export default function Appointment() {
       // Save both date and time in sessionStorage
       sessionStorage.setItem("selectedDate", selectedDate.toISOString());
       sessionStorage.setItem("selectedTime", selectedTime);
+      sessionStorage.setItem("dentist", dentistId);
+      sessionStorage.setItem("clinic", clinicId);
+
   
       router.push(`/patient-tool/book-appointment`);
     } catch (err) {

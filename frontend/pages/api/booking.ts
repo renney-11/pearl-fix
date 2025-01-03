@@ -30,6 +30,7 @@ async function subscribeToAvailabilitiesQueue(channel: Channel) {
                   start: new Date(slot.start).toISOString(),
                   end: new Date(slot.end).toISOString(),
                   status: slot.status,
+                  dentist: slot.dentist,
                 })),
               };
 
