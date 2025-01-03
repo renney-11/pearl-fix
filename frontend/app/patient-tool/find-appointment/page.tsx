@@ -11,6 +11,7 @@ export default function Appointment() {
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
+  const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
   const router = useRouter();
 
 
@@ -56,6 +57,25 @@ export default function Appointment() {
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
   }, [currentYear, currentMonth, availabilities]); // Trigger on availabilities change
+
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const response = await fetch(
+          `https://calendarific.com/api/v2/holidays?api_key=HHCAcL6QW2USf32b9w3CqcvyQBMEZL7M&country=SE&year=${currentYear}`
+        );
+        const data = await response.json();
+        if (data && data.response && data.response.holidays) {
+          const holidayDates = data.response.holidays.map((holiday: any) => holiday.date.iso);
+          setHolidays(holidayDates);
+        }
+      } catch (error) {
+        console.error("Error fetching holidays:", error);
+      }
+    };
+
+    fetchHolidays();
+  }, [currentYear]);
 
 
   // Generate the calendar for a given year and month
@@ -131,7 +151,12 @@ export default function Appointment() {
       }
 
       calendarElement.appendChild(dayElement);
+
+      if (holidays.includes(`${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`)) {
+        dayElement.classList.add("bg-gray-200", "text-red-500");
+      }
     }
+    
 
     // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
