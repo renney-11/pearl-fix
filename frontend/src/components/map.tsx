@@ -12,6 +12,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 interface Clinic {
   clinicName: string;
   address: string;
+  _id: string;
   coordinates: {
     latitude: number;
     longitude: number;
@@ -167,6 +168,28 @@ const Map: React.FC = () => {
       });
     };
 
+    const handleBookNow = async (clinicId: string) => {
+      try {
+        const response = await fetch("/api/booking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clinicId }), // Send clinicId as the payload
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Booking successful:", data);
+          // Navigate to the find-appointment page
+          router.push("/patient-tool/find-appointment");
+        } else {
+          console.error("Booking request failed:", response.statusText);
+          alert("Failed to book. Please try again.");
+        }
+      } catch (error) {
+        console.error("Error during booking request:", error);
+        alert("An error occurred. Please try again later.");
+      }
+    };
+    
     return (
       <>
         {clinics.map((clinic, index) => {
@@ -203,9 +226,7 @@ const Map: React.FC = () => {
                     </button>
                     <button
                       className="bg-green-600 text-white py-1 px-3 rounded-md text-sm hover:bg-green-700"
-                      onClick={() =>
-                        router.push("/patient-tool/find-appointment")
-                      }
+                      onClick={() => handleBookNow(clinic._id)}
                     >
                       Book Now
                     </button>
