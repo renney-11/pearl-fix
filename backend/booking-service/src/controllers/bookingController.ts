@@ -3,10 +3,12 @@ import Availability from "../models/Availability";
 import Booking from "../models/Booking";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import mongoose from "mongoose";
+import sendEmailConfirmation from '../email/send-email';
+
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
- // Patient creates a booking (books a time slot)
+// Patient creates a booking (books a time slot)
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
   const { dentistId, patientEmail, timeSlot } = req.body;
 
@@ -57,50 +59,18 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
 
     const patientIdFromMQTT = receivedPatient._id;
 
-    const availability = await Availability.findOne({ dentist: dentistId });
-    if (!availability) {
-      res.status(404).json({ message: "Dentist availability not found" });
-      return;
-    }
-
-    await mqttHandler.publish(
-      "pearl-fix/booking/find/clinic",
-      JSON.stringify({ dentistId })
-    );
-    console.log(`Published dentistId to "pearl-fix/booking/find/clinic":`, dentistId);
-
-    const clinic: any = await new Promise((resolve, reject) => {
-      let clinicData: any = null;
-      const timeout = setTimeout(() => {
-        if (clinicData) {
-          resolve(clinicData);
-        } else {
-          reject(new Error("No clinic received from MQTT subscription"));
-        }
-      }, 10000);
-
-      mqttHandler.subscribe("pearl-fix/booking/clinic", (msg) => {
-        try {
-          const message = JSON.parse(msg.toString());
-          console.log("Message received on 'pearl-fix/booking/clinic':", message);
-
-          if (message.clinic) {
-            clinicData = message.clinic;
-            clearTimeout(timeout);
-            resolve(clinicData);
-          }
-        } catch (error) {
-          console.error("Error processing clinic message:", error);
-        }
-      });
+    // Directly check if availability exists for the selected dentist and time slot
+    const availability = await Availability.findOne({
+      dentist: dentistId,
+      "timeSlots.start": { $lte: new Date(timeSlot.start) }, // Check if timeSlot start is before or equal
+      "timeSlots.end": { $gte: new Date(timeSlot.end) }, // Check if timeSlot end is after or equal
+      "timeSlots.status": "available",
     });
 
-    if (!clinic?._id) {
-      res.status(404).json({ message: "Clinic not found from MQTT data." });
+    if (!availability) {
+      res.status(400).json({ message: "The selected time slot is unavailable." });
       return;
     }
-
-    const clinicIdFromMQTT = clinic._id;
 
     const slotIndex = availability.timeSlots.findIndex(
       (slot) =>
@@ -114,10 +84,11 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
       return;
     }
 
+    // Create booking
     const booking = new Booking({
       dentistId,
       patientId: patientIdFromMQTT,
-      clinicId: clinicIdFromMQTT,
+      clinicId: availability.clinicId, // Assuming clinicId is available in Availability schema
       availabilityId: availability._id,
       timeSlot,
       status: "booked",
@@ -133,7 +104,7 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
       booking,
     });
 
-     await mqttHandler.publish(
+    await mqttHandler.publish(
       "pearl-fix/booking/update/dentist",
       JSON.stringify({
         dentistId,
@@ -152,13 +123,19 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     );
     console.log(`Published patient and booking to "pearl-fix/booking/update/patient"`);
 
+    // Send the email confirmation to the patient
+    const patientName = receivedPatient.name; // Assuming the patient name is available
+    await sendEmailConfirmation(patientEmail, patientName, timeSlot);
+
+    console.log(`Booking confirmation email sent to: ${patientEmail}`);
+
   } catch (error) {
     console.error("Error creating booking:", error);
     res.status(500).json({ message: "Server error" });
-  } finally {
-    mqttHandler.close();
   }
 };
+
+
 
 // Patient cancels booking
 export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<void> => {
