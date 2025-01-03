@@ -8,6 +8,8 @@ import { IDentist } from "../models/Dentist";
 import { validateFields, validateStringLength, validateEmailFormat, validateNameHasSpace } from "../middlewares/validators";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
 import { jwtDecrypt } from "jose";
+import { jwtVerify, JWTPayload } from "jose";
+
 
 declare global {
   namespace Express {
@@ -444,6 +446,54 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       console.error("Error processing verify dentist message:", error);
     }
   });
+
+  await mqttHandler.subscribe("pearl-fix/authentication/verify-patient", async (msg) => {
+    try {
+      const message = JSON.parse(msg.toString());
+      console.log("Received MQTT message on 'pearl-fix/authentication/verify-patient':", message);
+  
+      // Extract the token from the message
+      const token = message.token;
+  
+      if (!token) {
+        console.error("No token provided in the message.");
+        return;
+      }
+  
+      // Validate the token
+      const decoded = await validateToken(token); // Assume validateToken function exists
+      if (!decoded) {
+        console.error("Invalid token.");
+        return;
+      }
+  
+      const { id, type } = decoded;
+  
+      // Proceed only if the user is a patient
+      if (type === "patient") {
+        // Fetch the patient data based on the decoded token's id
+        const patient = await Patient.findById(id).select("-password");
+  
+        if (!patient) {
+          console.error(`Patient with ID ${id} not found.`);
+          return;
+        }
+  
+        // Now you can perform further logic with the validated patient
+        console.log("Patient verified:", patient);
+        
+        // Publish a success message with the patient's email
+        await mqttHandler.publish(
+          "pearl-fix/authentication/verify-patient/email",
+          JSON.stringify({ success: true, email: patient.email })
+        );
+      } else {
+        console.log("The token is not associated with a patient.");
+      }
+    } catch (error) {
+      console.error("Error processing verify patient message:", error);
+    }
+  });
   
   function getStoredTokenForUser(id: any) {
     throw new Error("Function not implemented.");
@@ -657,16 +707,17 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
 };
 
 // Function to validate the token and decode it (you need to implement this based on your auth system)
+// Function to validate the token and decode it
 async function validateToken(token: string) {
   try {
-    // Ensure your JWT secret key is a Buffer and is properly decoded
+    // Decode the JWT and disable the expiration check
     const secretKey = Buffer.from(process.env.JWT_SECRET!, 'base64');  // This assumes your secret is base64 encoded.
 
-    // Use jwtDecrypt from 'jose' to validate and decode the JWT
-    const { payload } = await jwtDecrypt(token, secretKey);
+    // Use jwtVerify with appropriate key type (Buffer -> Uint8Array)
+    const { payload } = await jwtVerify(token, secretKey as Uint8Array);
 
-    // Return the decoded payload (which includes user data)
-    return payload;
+    // Return the decoded payload
+    return payload as JWTPayload;
   } catch (error) {
     console.error("Token validation failed:", error);
     return null;

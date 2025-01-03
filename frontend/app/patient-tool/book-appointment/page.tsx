@@ -13,6 +13,26 @@ export default function Booking() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
 
 
+  const fetchUserEmail = async (token: string) => {
+    try {
+      const response = await fetch("/api/fetchUser", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.email; // Assuming the email is in the response
+      } else {
+        throw new Error("Failed to fetch user email");
+      }
+    } catch (err) {
+      console.error("Error fetching user email:", err);
+      alert("Failed to retrieve user email.");
+      return null;
+    }
+  };
 
 
   // Retrieve date and time from sessionStorage
@@ -29,9 +49,42 @@ export default function Booking() {
     if(storedDentist) setSelectedDentist(storedDentist);
     if(storedClinicName) setSelectedClinicName(storedClinicName);
     if(storedClinicAddress) setSelectedClinicAddress(storedClinicAddress);
-    if(storedUser) setSelectedUser(storedUser);
+    if (storedUser) {
+        // Fetch the user email from the backend using the authToken
+        const fetchEmail = async () => {
+          const email = await fetchUserEmail(storedUser);
+          if (email) setSelectedUser(email);
+        };
+        
+        fetchEmail();
+      }
+    }, []);
 
-  }, []);
+  const createBooking = async () => {
+    console.log("DentistId:", selectedDentist);
+    console.log("Patient Email:", selectedUser);
+    console.log("Time Slot:");
+    
+    if (!selectedDentist) return;
+  
+    const payload = {
+      dentistId: selectedDentist,
+      patientEmail: selectedUser,
+      // timeSlot:,
+    };
+  
+    try {
+      await fetch("/api/createBooking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+  
+    } catch (err) {
+      console.error("Error saving booking:", err);
+      alert("Failed to book appointment.");
+    }
+  };
 
   return (
     <div>
@@ -158,6 +211,7 @@ export default function Booking() {
               <button
                 type="button"
                 className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
+                onClick={createBooking}
               >
                 confirm appointment
               </button>

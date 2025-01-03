@@ -1,11 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 
-let authTokenCache: { token: string | null; expiration: number } = {
-  token: null,
-  expiration: 0,
-};
-
 let connection: Connection | null = null;
 let channel: Channel | null = null;
 
@@ -37,56 +32,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { email, password } = req.body;
+  const { token } = req.body;
 
   try {
-    if (authTokenCache.token && Date.now() < authTokenCache.expiration) {
-      console.log("Returning cached token:", authTokenCache.token);
-      return res.status(200).json({ token: authTokenCache.token });
-    }
     const { connection, channel } = await connectRabbitMQ();
-    const loginQueue = "pearl-fix/authentication/login";
-    const authenticateQueue = "pearl-fix/authentication/authenticate";
+    const queue = "pearl-fix/authentication/verify-patient";
+    const responseQueue = "pearl-fix/authentication/verify-patient/email";
 
     // Publish login data
-    const payload = { email, password };
-    await setupQueue(loginQueue);
-    channel.sendToQueue(loginQueue, Buffer.from(JSON.stringify(payload)), {
+    const payload = { token };
+    await setupQueue(queue);
+    channel.sendToQueue(queue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
     console.log("Message published:", payload);
 
     // Consume the authentication queue
-    console.log("Listening for token on authenticate queue...");
-    await setupQueue(authenticateQueue);
+    console.log("Listening for email on authenticate queue...");
+    await setupQueue(responseQueue);
 
-    let tokenReceived = false;
+    let emailReceived = false;
     const timeout = setTimeout(() => {
-      if (!tokenReceived) {
-        console.error("Timeout waiting for token.");
-        res.status(500).json({ error: "Failed to receive token." });
+      if (!emailReceived) {
+        console.error("Timeout waiting for email.");
+        res.status(500).json({ error: "Failed to receive email." });
         channel?.close();
         connection?.close();
       }
     }, 10000); // 10 seconds timeout
 
-    await consumeQueue(authenticateQueue, (msg) => {
+    await consumeQueue(responseQueue, (msg) => {
       if (msg) {
-        // Directly use msg.content.toString() as the token (since it's just a string)
-        const token = msg.content.toString();  // No need for JSON.parse, it's just the token string
-        console.log("Token received:", token);
-
-        if (token) {
-          tokenReceived = true;
+        const message = JSON.parse(msg.content.toString());
+        if (message.email) {
+          console.log("Email received:", message.email);
+          emailReceived = true;
           clearTimeout(timeout); // Clear timeout
           channel.ack(msg); // Acknowledge the message
-
-          authTokenCache = {
-            token,
-            expiration: Date.now() + 3600000, // 1 hour expiration
-          };
-
-          res.status(200).json({ token });  // Return the token
+          res.status(200).json({ email: message.email });
           channel.close();
           connection.close();
         }
