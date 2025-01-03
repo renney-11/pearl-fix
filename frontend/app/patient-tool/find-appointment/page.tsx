@@ -148,13 +148,23 @@ export default function Appointment() {
   const handleDateSelection = (date: Date) => {
     const formattedDate = date.toISOString().split("T")[0];
     setSelectedDate(date);
-
+  
     if (availabilities && availabilities[formattedDate]?.timeSlots) {
-      setAvailableTimes(availabilities[formattedDate].timeSlots.map((slot: any) => slot.start));
+      // Format time slots to show in 24-hour format (HH:mm)
+      const formattedTimes = availabilities[formattedDate].timeSlots.map((slot: any) => {
+        const time = new Date(slot.start);
+        let hours = time.getHours();
+        const minutes = time.getMinutes();
+  
+        // Format time to 24-hour format
+        const formattedTime = `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
+        return formattedTime;
+      });
+      setAvailableTimes(formattedTimes);
     } else {
       setAvailableTimes([]);
     }
-  };
+  };  
 
   // Handle saving the booking
   const handleSave = async () => {
