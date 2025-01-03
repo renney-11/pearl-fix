@@ -3,9 +3,19 @@ import Header from "@/src/components/header";
 import SubBackground from "@/src/components/subbackground";
 import Background from "@/src/components/background";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 
-export default function Appointment() {
+export default function Booking() {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+
+  // Retrieve date and time from sessionStorage
+  useEffect(() => {
+    const storedDate = sessionStorage.getItem("selectedDate");
+    const storedTime = sessionStorage.getItem("selectedTime");
+
+    if (storedDate) setSelectedDate(new Date(storedDate).toDateString());
+    if (storedTime) setSelectedTime(storedTime);
+  }, []);
 
   return (
     <div>
@@ -110,24 +120,27 @@ export default function Appointment() {
 
           <SubBackground>
           <div className="text-center p-8 mb-50">
-            <h1 className="text-3xl font-bold text-main-blue">Your Booking Details</h1>
-          </div>
-          <div>
-            <p className="text-xl font-bold text-main-blue p-4">Date: </p>
-            <p className="text-xl font-bold text-main-blue p-4">Time: </p>
-            <p className="text-xl font-bold text-main-blue p-4">Dentist: </p>
-            <p className="text-xl font-bold text-main-blue p-4">Clinic: </p>
-            <p className="text-xl font-bold text-main-blue p-4">Address: </p>
+              <h1 className="text-3xl font-bold text-main-blue">Your Booking Details</h1>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-main-blue p-4">
+                Date: {selectedDate || "Loading..."}
+              </p>
+              <p className="text-xl font-bold text-main-blue p-4">
+                Time: {selectedTime || "Loading..."}
+              </p>
+              <p className="text-xl font-bold text-main-blue p-4">Dentist: </p>
+              <p className="text-xl font-bold text-main-blue p-4">Clinic: </p>
+              <p className="text-xl font-bold text-main-blue p-4">Address: </p>
             </div>
             <div className="flex items-center justify-center mt-4">
-                  <button
-                    type="button"
-                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
-                    
-                  >
-                    confirm appointment
-                  </button>
-                </div>
+              <button
+                type="button"
+                className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
+              >
+                confirm appointment
+              </button>
+            </div>
           </SubBackground>
         </Background>
       </main>

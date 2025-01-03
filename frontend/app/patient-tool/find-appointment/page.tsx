@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 export default function Appointment() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
@@ -189,30 +190,36 @@ export default function Appointment() {
     } else {
       setAvailableTimes([]);
     }
+    setSelectedTime(null);
   };  
 
   // Handle saving the booking
   const handleSave = async () => {
-    if (!selectedDate || !availableTimes.length) return;
-
+    if (!selectedDate || !selectedTime) return;
+  
     const payload = {
       date: selectedDate.toISOString(),
-      time: availableTimes[0],
+      time: selectedTime,
     };
-
+  
     try {
       await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
+  
+      // Save both date and time in sessionStorage
+      sessionStorage.setItem("selectedDate", selectedDate.toISOString());
+      sessionStorage.setItem("selectedTime", selectedTime);
+  
       router.push(`/patient-tool/book-appointment`);
     } catch (err) {
       console.error("Error saving booking:", err);
       alert("Failed to book appointment.");
     }
   };
+  
 
   return (
     <div>
@@ -345,6 +352,7 @@ export default function Appointment() {
                         name="time"
                         value={time}
                         className="hidden peer"
+                        onChange={() => setSelectedTime(time)}
                       />
                       <label
                         htmlFor={time}
