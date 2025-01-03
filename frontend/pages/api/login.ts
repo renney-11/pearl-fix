@@ -14,9 +14,9 @@ async function resetState() {
 
 async function connectRabbitMQ() {
   if (!connection) {
-    connection = await amqp.connect(
-      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-    );
+    const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost"; // Get URL from env variable
+    console.log(`Connecting to RabbitMQ at ${amqpUrl}...`);
+    connection = await amqp.connect(amqpUrl);
   }
   if (!channel) {
     channel = await connection.createChannel();

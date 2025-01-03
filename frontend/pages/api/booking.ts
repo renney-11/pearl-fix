@@ -1,5 +1,5 @@
+import amqp, { Channel, Connection } from "amqplib";
 import { NextApiRequest, NextApiResponse } from "next";
-import amqp, { Connection, Channel } from "amqplib";
 
 // Initial cache setup
 let timeSlotsCache: { clinicId: string | null; timeSlots: any[] } = {
@@ -20,7 +20,10 @@ async function subscribeToAvailabilitiesQueue(channel: Channel) {
         if (msg) {
           try {
             const data = JSON.parse(msg.content.toString());
-            console.log("Message received on 'pearl-fix/availability/clinic/all':", data);
+            console.log(
+              "Message received on 'pearl-fix/availability/clinic/all':",
+              data
+            );
 
             if (data.status === "success" && Array.isArray(data.timeSlots)) {
               // Update the cache with new data
@@ -51,15 +54,17 @@ async function subscribeToAvailabilitiesQueue(channel: Channel) {
 }
 
 // Function to initialize the RabbitMQ connection
-async function getAmqpChannel() {
-  const connection = await amqp.connect(
-    "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-  );
+async function getAmqpChannel(): Promise<amqp.Channel> {
+  const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
+  const connection = await amqp.connect(amqpUrl);
   const channel = await connection.createChannel();
   return channel;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method === "GET") {
     try {
       const channel = await getAmqpChannel();
@@ -86,9 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let channel: Channel | null = null;
 
     try {
-      connection = await amqp.connect(
-        "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-      );
+      const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
+
+      // Connect to RabbitMQ
+      connection = await amqp.connect(amqpUrl);
       channel = await connection.createChannel();
 
       const availabilityQueue = "pearl-fix/availability/clinic-id";
@@ -107,9 +113,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         await channel.assertQueue(bookingQueue, { durable: true });
 
         const payload = { date, time, clinicId };
-        channel.sendToQueue(bookingQueue, Buffer.from(JSON.stringify(payload)), {
-          persistent: true,
-        });
+        channel.sendToQueue(
+          bookingQueue,
+          Buffer.from(JSON.stringify(payload)),
+          {
+            persistent: true,
+          }
+        );
 
         console.log("Booking published:", payload);
       }
@@ -117,7 +127,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Simulate slower POST request by adding a delay
       await new Promise((resolve) => setTimeout(resolve, 1000)); // Delay for 1 second
 
-      res.status(200).json({ message: "Clinic ID and booking information sent." });
+      res
+        .status(200)
+        .json({ message: "Clinic ID and booking information sent." });
     } catch (error) {
       console.error("Error publishing booking:", error);
       res.status(500).json({ error: "Internal server error" });
