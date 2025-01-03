@@ -1,15 +1,23 @@
 import amqplib from 'amqplib';
+import dotenv from 'dotenv';
+
+dotenv.config(); // Load environment variables from .env
 
 export class MQTTHandler {
   private connection!: amqplib.Connection;
   private channel!: amqplib.Channel;
 
-  constructor(private amqpUrl: string) {}
+  constructor(private amqpUrl: string = process.env.CLOUDAMQP_URL || 'amqp://localhost') {}
 
   async connect() {
-    this.connection = await amqplib.connect(this.amqpUrl);
-    this.channel = await this.connection.createChannel();
-    console.log("Connected to RabbitMQ");
+    try {
+      this.connection = await amqplib.connect(this.amqpUrl);
+      this.channel = await this.connection.createChannel();
+      console.log("Connected to RabbitMQ at", this.amqpUrl);
+    } catch (error) {
+      console.error("Failed to connect to RabbitMQ:", error);
+      throw error;
+    }
   }
 
   async publish(queue: string, message: string) {
@@ -17,8 +25,8 @@ export class MQTTHandler {
       throw new Error("Channel is not initialized");
     }
 
-    await this.channel.assertQueue(queue, { durable: true });  // Ensuring the queue exists
-    await this.channel.sendToQueue(queue, Buffer.from(message));  // Awaiting sendToQueue
+    await this.channel.assertQueue(queue, { durable: true });
+    await this.channel.sendToQueue(queue, Buffer.from(message));
     console.log(`Published message to "${queue}": ${message}`);
   }
 
@@ -27,12 +35,12 @@ export class MQTTHandler {
       throw new Error("Channel is not initialized");
     }
 
-    await this.channel.assertQueue(queue, { durable: true });  // Ensuring the queue exists
+    await this.channel.assertQueue(queue, { durable: true });
     await this.channel.consume(queue, (msg) => {
       if (msg) {
         const content = msg.content.toString();
         callback(content);
-        this.channel.ack(msg);  // Acknowledge the message
+        this.channel.ack(msg);
       }
     });
     console.log(`Subscribed to queue "${queue}"`);
