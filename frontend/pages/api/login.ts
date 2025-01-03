@@ -1,13 +1,16 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 
-let authTokenCache: { token: string | null; expiration: number } = {
-  token: null,
-  expiration: 0,
-};
-
 let connection: Connection | null = null;
 let channel: Channel | null = null;
+
+// Reset function for clearing connection and state
+async function resetState() {
+  if (channel) await channel.close(); // Close any existing channel
+  if (connection) await connection.close(); // Close any existing connection
+  connection = null;
+  channel = null;
+}
 
 async function connectRabbitMQ() {
   if (!connection) {
@@ -37,13 +40,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Reset everything to ensure no old state is used
+  await resetState();  // Clear old cache, channels, and connections
+
   const { email, password } = req.body;
 
   try {
-    if (authTokenCache.token && Date.now() < authTokenCache.expiration) {
-      console.log("Returning cached token:", authTokenCache.token);
-      return res.status(200).json({ token: authTokenCache.token });
-    }
     const { connection, channel } = await connectRabbitMQ();
     const loginQueue = "pearl-fix/authentication/login";
     const authenticateQueue = "pearl-fix/authentication/authenticate";
@@ -57,14 +59,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log("Message published:", payload);
 
     // Consume the authentication queue
-    console.log("Listening for token on authenticate queue...");
+    console.log("Listening for response on authenticate queue...");
     await setupQueue(authenticateQueue);
 
-    let tokenReceived = false;
+    let responseReceived = false;
     const timeout = setTimeout(() => {
-      if (!tokenReceived) {
-        console.error("Timeout waiting for token.");
-        res.status(500).json({ error: "Failed to receive token." });
+      if (!responseReceived) {
+        console.error("Timeout waiting for response.");
+        res.status(500).json({ error: "Failed to receive authentication response." });
         channel?.close();
         connection?.close();
       }
@@ -72,30 +74,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await consumeQueue(authenticateQueue, (msg) => {
       if (msg) {
-        // Directly use msg.content.toString() as the token (since it's just a string)
-        const token = msg.content.toString();  // No need for JSON.parse, it's just the token string
-        console.log("Token received:", token);
+        const messageContent = msg.content.toString();
+        console.log("Message received on authenticate queue:", messageContent);
 
-        if (token) {
-          tokenReceived = true;
-          clearTimeout(timeout); // Clear timeout
-          channel.ack(msg); // Acknowledge the message
+        try {
+          const parsedMsg = JSON.parse(messageContent);
+          if (parsedMsg.message && parsedMsg.message === "Invalid credentials") {
+            console.log("Invalid credentials for email:", email);
+            channel.ack(msg); // Acknowledge the message
+            clearTimeout(timeout); // Clear timeout
 
-          authTokenCache = {
-            token,
-            expiration: Date.now() + 3600000, // 1 hour expiration
-          };
+            res.status(401).json({ error: "Invalid credentials" });  // Respond with error
+          } else if (parsedMsg.token) {
+            console.log("Valid token received:", parsedMsg.token);
+            channel.ack(msg); // Acknowledge the message
+            clearTimeout(timeout); // Clear timeout
 
-          res.status(200).json({ token });  // Return the token
-          channel.close();
-          connection.close();
+            res.status(200).json({ token: parsedMsg.token });  // Send token if valid
+          } else {
+            console.error("Unexpected message format received.");
+            channel.ack(msg); // Acknowledge the message
+            res.status(500).json({ error: "Unexpected message format" });
+          }
+        } catch (error) {
+          console.error("Error parsing message:", error);
+          res.status(500).json({ error: "Internal error while processing message" });
         }
       }
     });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error." });
-    if (channel) await channel.close();
-    if (connection) await connection.close();
+    await resetState();  // Reset on error as well
   }
 }
