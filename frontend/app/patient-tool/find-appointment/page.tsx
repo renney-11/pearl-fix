@@ -361,7 +361,7 @@ export default function Appointment() {
                     className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
                     onClick={handleSave}
                   >
-                    save
+                    next
                   </button>
                 </div>
               </div>
