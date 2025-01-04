@@ -422,6 +422,62 @@ await mqttHandler.subscribe("pearl-fix/booking/find/dentist/for-clinic", async (
     console.error("Error processing find dentist message:", errorMessage);
   }
 });
+
+await mqttHandler.subscribe("pearl-fix/booking/canceled", async (msg) => {
+  try {
+    console.log("Message received from booking-service for cancellation:", msg);
+
+    let parsedMessage;
+    try {
+      parsedMessage = JSON.parse(msg);
+    } catch (err) {
+      console.error("Failed to parse cancellation message:", err);
+      return;
+    }
+
+    const { bookingId } = parsedMessage; // Extract the bookingId
+
+    if (!bookingId) {
+      console.error("Missing bookingId in the request");
+      return;
+    }
+
+    // Find the patient who has this booking
+    const patient = await Patient.findOne({ bookings: bookingId });
+    if (!patient) {
+      console.error("No patient found for bookingId:", bookingId);
+      return;
+    }
+
+    // Find the dentist who has this booking
+    const dentist = await Dentist.findOne({ bookings: bookingId });
+    if (!dentist) {
+      console.error("No dentist found for bookingId:", bookingId);
+      return;
+    }
+
+    console.log("Dentist and Patient found:", dentist.email, patient.email);
+
+    // Publish dentist email
+    await mqttHandler.publish(
+      "pearl-fix/booking/canceled/dentist-email",
+      JSON.stringify({ email: dentist.email })
+    );
+    console.log(`Published dentist's email to "pearl-fix/booking/canceled/dentist-email": ${dentist.email}`);
+
+    // Publish patient email
+    await mqttHandler.publish(
+      "pearl-fix/booking/canceled/patient-email",
+      JSON.stringify({ email: patient.email })
+    );
+    console.log(`Published patient's email to "pearl-fix/booking/canceled/patient-email": ${patient.email}`);
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Error processing canceled booking message:", errorMessage);
+  }
+});
+
     await mqttHandler.subscribe("pearl-fix/availability/create/id", handleAvailabilityCreateIdMessage);
 
     console.log("Subscriptions for registration and login initialized.");
