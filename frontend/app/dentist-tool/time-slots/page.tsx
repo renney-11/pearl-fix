@@ -318,7 +318,7 @@ export default function Appointment() {
 
           <SubBackground>
           <h2 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
-          Let's Set Your Availability
+          Schedule Your Availability
           </h2>
           <div className="text-lg font-medium text-[#1E3582] text-center mb-8">
           <p>

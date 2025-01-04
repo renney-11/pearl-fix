@@ -38,7 +38,7 @@ export default function Login() {
         if (token) {
           sessionStorage.setItem("authToken", token); // Save token securely
           alert("Login successful!");
-          router.push("/dentist-tool/time-slots");
+          router.push("/dentist-tool/landing-page");
         } else {
           alert("Login successful, but no token received.");
         }
