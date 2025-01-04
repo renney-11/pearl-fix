@@ -108,11 +108,13 @@ export default function Booking() {
   
     if (!selectedDentist || !selectedUser) return;
   
+    const start = timeSlotStart.toISOString();
+    const end = timeSlotEnd.toISOString();
+
     const payload = {
       dentistId: selectedDentist,
       patientEmail: selectedUser,
-      timeSlotStart: timeSlotStart.toISOString(),
-      timeSlotEnd: timeSlotEnd.toISOString(),
+      timeSlot: { start, end },
     };
   
     try {
