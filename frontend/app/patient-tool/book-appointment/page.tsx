@@ -114,7 +114,7 @@ export default function Booking() {
     const payload = {
       dentistId: selectedDentist,
       patientEmail: selectedUser,
-      timeSlot: { start, end },
+      timeSlot: { "start": start, "end": end },
     };
   
     try {

@@ -59,7 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const queue = "pearl-fix/booking/create";
-  const authenticateQueue = "pearl-fix/booking/authenticate";
+  const authenticateQueue = "pearl-fix/booking/create/authenticate";
   let responseSent = false;
 
   try {
