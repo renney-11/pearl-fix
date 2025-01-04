@@ -119,8 +119,15 @@ export default function Appointment() {
       calendarElement.appendChild(dayElement);
     }
 
-    prevButton.disabled = year === today.getFullYear() && month === today.getMonth();
-    nextButton.disabled = year === today.getFullYear() && month === today.getMonth() + 1;
+    // Disable previous button if viewing the current month
+      if (year === today.getFullYear() && month === today.getMonth()) {
+        prevButton.disabled = true;
+        prevButton.classList.add("opacity-0");
+      } else {
+        prevButton.disabled = false;
+        prevButton.classList.remove("opacity-0");
+        }
+
   };
 
   const handleDateSelection = (date: Date) => {
@@ -257,44 +264,111 @@ export default function Appointment() {
       <main>
         <Background>
           <Header />
+
+          <nav className="flex m-8" aria-label="Breadcrumb">
+            <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
+              {/* Breadcrumb navigation */}
+              <li className="inline-flex items-center">
+                <a
+                  href="/dentist-tool/landing-page"
+                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-blue"
+                >
+                  <svg
+                    className="w-3 h-3 me-2.5"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
+                  </svg>
+                  Home
+                </a>
+              </li>
+              <li>
+                <div className="flex items-center">
+                  <svg
+                    className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 6 10"
+                  >
+                    <path
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m1 9 4-4-4-4"
+                    />
+                  </svg>
+
+                </div>
+              </li>
+              <li aria-current="page">
+                <div className="flex items-center">
+                  
+                  <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">
+                  Schedule Availability
+                  </span>
+                </div>
+              </li>
+            </ol>
+          </nav>
+
           <SubBackground>
+          <h2 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+          Let's Set Your Availability
+          </h2>
+          <div className="text-lg font-medium text-[#1E3582] text-center mb-8">
+          <p>
+            Use the calendar below to select each date and define the available times for that day. 
+          </p>
+          <p>
+            This will help you efficiently set and update your schedule for your patients' appointments.
+          </p>
+          </div>
+
             <div className="flex items-center justify-center hover:max-h-screen">
               <div className="lg:w-7/12 md:w-9/12 sm:w-10/12 mx-auto p-4">
                 <div className="bg-white-blue shadow-lg rounded-lg overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-3 bg-main-blue">
-                    <button
-                      id="prevMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 0) {
-                          setCurrentMonth(11);
-                          setCurrentYear((prev) => prev - 1);
-                        } else {
-                          setCurrentMonth((prev) => prev - 1);
-                        }
-                      }}
-                      style={{ display: currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear() ? 'none' : 'inline-block' }}
-                    >
-                      previous
-                    </button>
-                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base text-center w-full">
-                      {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][currentMonth]} {currentYear}
-                    </h2>
-                    <button
-                      id="nextMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 11) {
-                          setCurrentMonth(0);
-                          setCurrentYear((prev) => prev + 1);
-                        } else {
-                          setCurrentMonth((prev) => prev + 1);
-                        }
-                      }}
-                      style={{ display: currentYear === new Date().getFullYear() + 1 && currentMonth === 11 ? 'none' : 'inline-block' }}
-                    >
-                      next
-                    </button>
+                  <button
+                  id="prevMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentMonth(11);
+                      setCurrentYear((prev) => prev - 1);
+                    } else {
+                      setCurrentMonth((prev) => prev - 1);
+                    }
+                  }}
+                >
+                  previous
+                </button>
+
+                <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
+
+                <button
+                  id="nextMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentMonth(0);
+                      setCurrentYear((prev) => prev + 1);
+                    } else {
+                      setCurrentMonth((prev) => prev + 1);
+                    }
+                  }}
+                  disabled={
+                    (currentYear > new Date().getFullYear() + 1) || 
+                    (currentYear === new Date().getFullYear() + 1 && currentMonth > new Date().getMonth())
+                  }
+                >
+                next
+                </button>
+
                   </div>
                   <div className="grid grid-cols-7 gap-2 p-4" id="calendar"></div>
                 </div>
@@ -302,80 +376,92 @@ export default function Appointment() {
             </div>
 
             {isModalOpen && (
-              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white-blue p-6 rounded-lg shadow-lg relative">
-                  <button
-                    onClick={handleCloseModal}
-                    className="absolute top-2 right-2 text-xl text-gray-500 hover:text-gray-800"
-                  >
-                    &times;
-                  </button>
-                  <h3 className="text-lg font-semibold text-main-blue">
-                    {isDateBlocked
-                      ? "You can't manage this day"
-                      : `Manage availability for ${selectedDate?.toDateString()}`}
-                  </h3>
-                  {!isDateBlocked && (
-                    <>
-                      <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-  {allSlots.map((slot) => {
-    const [hour, minute] = slot.split(":").map(Number);
-    const start = new Date(selectedDate);  // Use the selectedDate for the base
-    start.setHours(hour, minute, 0, 0);
-    const end = new Date(start);
-    end.setHours(hour + 1, minute, 0, 0);
-    
-    return (
-      <li key={slot}>
-        <input
-          type="checkbox"
-          id={slot}
-          checked={availableSlots.some(s => s.start.getTime() === start.getTime())}
-          onChange={() => toggleSlotAvailability(slot)}
-          className="hidden"
-        />
-        <label
-          htmlFor={slot}
-          className={`inline-flex items-center justify-center w-full px-2 py-1 text-sm font-medium text-center border rounded-lg cursor-pointer ${
-            availableSlots.some(s => s.start.getTime() === start.getTime())
-              ? "bg-green-100 text-green-700 border-green-500"
-              : "bg-red-100 text-red-700 border-red-500"
-          }`}
-        >
-          {slot}
-        </label>
-      </li>
-    );
-  })}
-</ul>
-                      <div className="flex items-center justify-end mt-4 gap-2">
-                        {isDayUnavailable ? (
-                          <button
-                            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-700"
-                            onClick={handleMarkDayAvailable}
-                          >
-                            Make Day Available
-                          </button>
-                        ) : (
-                          <button
-                            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-700"
-                            onClick={handleMarkDayUnavailable}
-                          >
-                            Mark Day Unavailable
-                          </button>
-                        )}
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg shadow-xl p-6 relative max-w-2xl max-h-[80vh] overflow-auto">
+                <button
+                  onClick={handleCloseModal}
+                  className="absolute top-4 right-4 text-2xl text-gray-500 hover:text-gray-800"
+                >
+                  &times;
+                </button>
+                <h3 className="text-lg font-semibold text-main-blue mt-6 mb-4">
+                  {isDateBlocked
+                    ? "You can't manage this day"
+                    : `Manage availability for ${selectedDate?.toDateString()}`}
+                </h3>
+                {!isDateBlocked && (
+                  <>
+                    {/* Date selection grid */}
+                    <div className="grid grid-cols-1 gap-4 mt-4">
+                      {allSlots
+                        .filter(slot => {
+                          // Exclude fikaBreak and lunchBreak slots
+                          return !(
+                            (slot >= '12:00' && slot < '13:00') || 
+                            (slot >= '15:00' && slot < '16:00')  
+                          );
+                        })
+                        .map((slot, index) => {
+                          const [hour, minute] = slot.split(":").map(Number);
+                          const start = new Date(selectedDate);
+                          start.setHours(hour, minute, 0, 0);
+                          const end = new Date(start);
+                          end.setHours(hour + 1, minute, 0, 0);
+
+                        return (
+                          <div key={index} className="flex items-center gap-4 p-2 border rounded-lg hover:shadow-md transition duration-300 ease-in-out">
+                            <input
+                              type="checkbox"
+                              id={`slot-${index}`}
+                              checked={availableSlots.some(s => s.start.getTime() === start.getTime())}
+                              onChange={() => toggleSlotAvailability(slot)}
+                              className="h-6 w-6 border-gray-300 text-blue-700 focus:ring-blue-500 peer"
+                            />
+                            <label
+                              htmlFor={`slot-${index}`}
+                              className={`w-full text-lg font-medium text-center cursor-pointer transition-all duration-300 ${
+                                availableSlots.some(s => s.start.getTime() === start.getTime())
+                                  ? "bg-green-100 text-green-700 border-green-500"
+                                  : "bg-red-100 text-red-700 border-red-500"
+                              } hover:bg-opacity-80`}
+                            >
+                              {slot}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Buttons */}
+                    <div className="flex items-center justify-between mt-4">
+                      {isDayUnavailable ? (
                         <button
-                          className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-900"
-                          onClick={handleSaveSlots}
+                          className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-300"
+                          onClick={handleMarkDayAvailable}
                         >
-                          Save
+                          Make Day Available
                         </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                      ) : (
+                        <button
+                          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-300"
+                          onClick={handleMarkDayUnavailable}
+                        >
+                          Mark Day Unavailable
+                        </button>
+                      )}
+                      <button
+                        className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition duration-300"
+                        onClick={handleSaveSlots}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-            )}
+            </div>
+          )}
+
           </SubBackground>
         </Background>
       </main>

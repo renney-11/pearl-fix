@@ -157,7 +157,6 @@ export default function Appointment() {
       }
     }
     
-
     // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
@@ -226,7 +225,7 @@ export default function Appointment() {
               <li className="inline-flex items-center">
                 <a
                   href="/patient-tool/landing-page"
-                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-white"
+                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-blue"
                 >
                   <svg
                     className="w-3 h-3 me-2.5"
@@ -237,7 +236,7 @@ export default function Appointment() {
                   >
                     <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
                   </svg>
-                  home
+                  Home
                 </a>
               </li>
               <li>
@@ -259,9 +258,9 @@ export default function Appointment() {
                   </svg>
                   <a
                     href="/patient-tool/find-care"
-                    className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-white"
+                    className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-blue"
                   >
-                    find care
+                    Find Care
                   </a>
                 </div>
               </li>
@@ -283,7 +282,7 @@ export default function Appointment() {
                     />
                   </svg>
                   <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">
-                    find appointment
+                    Find Appointment
                   </span>
                 </div>
               </li>
@@ -295,35 +294,42 @@ export default function Appointment() {
               <div className="lg:w-7/12 md:w-9/12 sm:w-10/12 mx-auto p-4">
                 <div className="bg-white-blue shadow-lg rounded-lg overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-3 bg-main-blue">
-                    <button
-                      id="prevMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 0) {
-                          setCurrentMonth(11);
-                          setCurrentYear((prev) => prev - 1);
-                        } else {
-                          setCurrentMonth((prev) => prev - 1);
-                        }
-                      }}
-                    >
-                      previous
-                    </button>
-                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
-                    <button
-                      id="nextMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 11) {
-                          setCurrentMonth(0);
-                          setCurrentYear((prev) => prev + 1);
-                        } else {
-                          setCurrentMonth((prev) => prev + 1);
-                        }
-                      }}
-                    >
-                      next
-                    </button>
+                  <button
+                  id="prevMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentMonth(11);
+                      setCurrentYear((prev) => prev - 1);
+                    } else {
+                      setCurrentMonth((prev) => prev - 1);
+                    }
+                  }}
+                >
+                  previous
+                </button>
+
+                <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
+
+                <button
+                  id="nextMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentMonth(0);
+                      setCurrentYear((prev) => prev + 1);
+                    } else {
+                      setCurrentMonth((prev) => prev + 1);
+                    }
+                  }}
+                  disabled={
+                    (currentYear > new Date().getFullYear() + 1) || 
+                    (currentYear === new Date().getFullYear() + 1 && currentMonth > new Date().getMonth())
+                  }
+                >
+                  next
+                </button>
+
                   </div>
                   <div className="grid grid-cols-7 gap-2 p-4" id="calendar"></div>
                 </div>
