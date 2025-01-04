@@ -10,6 +10,50 @@ import sendCancellationEmailByDentist from '../email/dentist-cancells';
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
+// Helper method to continuously listen for booking data
+const listenForBookingData = async (): Promise<void> => {
+  try {
+    await mqttHandler.connect();
+
+    mqttHandler.subscribe("pearl-fix/booking/create", async (msg) => {
+      try {
+        const bookingData = JSON.parse(msg.toString());
+        console.log("Received booking data:", bookingData);
+
+        // Validate required fields
+        if (!bookingData.dentistId || !bookingData.patientEmail || !bookingData.timeSlot) {
+          console.error("Invalid booking data received:", bookingData);
+          return;
+        }
+
+        // Call createBooking with a mock req and res
+        const mockReq = {
+          body: bookingData,
+        } as unknown as Parameters<RequestHandler>[0];
+
+        const mockRes = {
+          status: (statusCode: number) => ({
+            json: (response: any) => {
+              console.log(`Response (${statusCode}):`, response);
+              return response;
+            },
+          }),
+        } as unknown as Parameters<RequestHandler>[1];
+
+        const mockNext = () => {}; // This is an empty function, acting as the 'next' middleware
+
+        await createBooking(mockReq, mockRes, mockNext);
+      } catch (error) {
+        console.error("Error processing booking data:", error);
+      }
+    });
+
+    console.log("Listening for messages on 'pearl-fix/booking/create'...");
+  } catch (error) {
+    console.error("Error setting up MQTT listener:", error);
+  }
+};
+
 // Patient creates a booking (books a time slot)
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
   const { dentistId, patientEmail, timeSlot } = req.body;
@@ -502,3 +546,6 @@ await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
     mqttHandler.close();
   }
 };
+
+// Start listening for bookings
+listenForBookingData();
