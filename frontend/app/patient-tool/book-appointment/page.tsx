@@ -11,6 +11,8 @@ export default function Booking() {
   const [selectedClinicName, setSelectedClinicName] = useState<string | null>(null);
   const [selectedClinicAddress, setSelectedClinicAddress] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+
 
 
   const fetchUserEmail = async (token: string) => {
@@ -43,12 +45,14 @@ export default function Booking() {
     const storedClinicName = sessionStorage.getItem("clinicName");
     const storedClinicAddress = sessionStorage.getItem("clinicAddress");
     const storedUser = sessionStorage.getItem("authToken");
+    const storedEmail = sessionStorage.getItem("email");
 
     if (storedDate) setSelectedDate(new Date(storedDate).toDateString());
     if (storedTime) setSelectedTime(storedTime);
     if(storedDentist) setSelectedDentist(storedDentist);
     if(storedClinicName) setSelectedClinicName(storedClinicName);
     if(storedClinicAddress) setSelectedClinicAddress(storedClinicAddress);
+    if (storedEmail) setSelectedEmail(storedEmail);
     if (storedUser) {
         // Fetch the user email from the backend using the authToken
         const fetchEmail = async () => {
@@ -60,17 +64,55 @@ export default function Booking() {
       }
     }, []);
 
+    // Create start and end times based on stored selectedDate and selectedTime
+  const createStartEndTimes = () => {
+    // Check if selectedDate and selectedTime are available
+    const storedDate = sessionStorage.getItem("selectedDate");
+    const storedTime = sessionStorage.getItem("selectedTime");
+
+    if (!storedDate || !storedTime) {
+      console.error("No selected date or time found in sessionStorage");
+      return { start: "", end: "" };
+    }
+
+    // Parse the stored selected date to a Date object
+    const selectedDate = new Date(storedDate);
+
+    // Extract the hours and minutes from selectedTime (e.g., "14:00")
+    const [selectedHours, selectedMinutes] = storedTime.split(":").map(Number);
+
+    // Set the time of the selected date based on selectedTime (use hours and minutes)
+    selectedDate.setHours(selectedHours, selectedMinutes, 0, 0);  // Set hours, minutes, and reset seconds and milliseconds
+
+    // The start time is the updated selectedDate
+    const start = selectedDate.toISOString();  // Convert to ISO string
+
+    // Create the end time (1 hour after the selected start time)
+    const end = new Date(selectedDate);
+    end.setHours(selectedDate.getHours() + 1);  // Add 1 hour to the start time
+    const endFormatted = end.toISOString();  // Convert to ISO string
+
+    return { start, end: endFormatted };
+  };
+
   const createBooking = async () => {
     console.log("DentistId:", selectedDentist);
     console.log("Patient Email:", selectedUser);
-    console.log("Time Slot:");
     
-    if (!selectedDentist) return;
+    // Ensure time is correctly formatted in UTC
+    const timeSlotStart = new Date(selectedDate + " " + selectedTime + ":00 GMT"); // Assuming selectedTime is "13:00"
+    const timeSlotEnd = new Date(timeSlotStart);
+    timeSlotEnd.setHours(timeSlotStart.getHours() + 1); // Assuming 1 hour duration
+  
+    console.log("Time Slot:", timeSlotStart.toISOString(), timeSlotEnd.toISOString());
+  
+    if (!selectedDentist || !selectedUser) return;
   
     const payload = {
       dentistId: selectedDentist,
       patientEmail: selectedUser,
-      // timeSlot:,
+      timeSlotStart: timeSlotStart.toISOString(),
+      timeSlotEnd: timeSlotEnd.toISOString(),
     };
   
     try {
@@ -79,12 +121,12 @@ export default function Booking() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-  
     } catch (err) {
       console.error("Error saving booking:", err);
       alert("Failed to book appointment.");
     }
   };
+  
 
   return (
     <div>
@@ -205,7 +247,7 @@ export default function Booking() {
                 Address: {selectedClinicAddress || "Loading..."} 
               </p>
               <p className="text-xl font-bold text-main-blue p-4">
-                Your Email: {selectedUser || "Loading..."} 
+                Your Email: {selectedEmail || "Loading..."} 
               </p>
             </div>
             <div className="flex items-center justify-center mt-4">

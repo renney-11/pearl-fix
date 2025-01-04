@@ -42,6 +42,7 @@ export default function Login() {
           sessionStorage.setItem("authToken", token);
 
           alert("Login successful!");
+          sessionStorage.setItem("email", formData.email); 
           router.push("/patient-tool/landing-page"); 
         } else {
           alert("Login successful, but no token received.");
