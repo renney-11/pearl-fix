@@ -3,8 +3,10 @@ import Availability from "../models/Availability";
 import Booking from "../models/Booking";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import mongoose from "mongoose";
-import sendEmailConfirmation from '../email/send-email';
-import sendCancellationEmail from '../email/cancellation';
+import sendEmailConfirmation from '../email/patient-books';
+import sendCancellationEmail from '../email/patient-cancells';
+import sendCancellationEmailByDentist from '../email/dentist-cancells';
+
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
@@ -401,7 +403,71 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
       }
     }
 
-    res.status(200).json({ message: "Booking canceled successfully." });
+    // Publish bookingId to the cancellation topic
+await mqttHandler.publish(
+  "pearl-fix/booking/canceled",
+  JSON.stringify({ bookingId })
+);
+console.log(`Published canceled bookingId to "pearl-fix/booking/canceled": ${bookingId}`);
+
+// Subscribe and retrieve dentist's email
+const dentistEmail: string = await new Promise((resolve, reject) => {
+  let email: string | null = null;
+  const timeout = setTimeout(() => {
+    if (email) resolve(email);
+    else reject(new Error("Dentist email not received within timeout"));
+  }, 10000);
+
+  mqttHandler.subscribe("pearl-fix/booking/canceled/dentist-email", (msg) => {
+    try {
+      const { email: receivedEmail } = JSON.parse(msg.toString());
+      console.log("Received dentist email:", receivedEmail);
+      email = receivedEmail;
+      clearTimeout(timeout);
+      resolve(receivedEmail);
+    } catch (error) {
+      console.error("Error processing dentist email message:", error);
+    }
+  });
+});
+
+// Subscribe and retrieve patient's email
+const patientEmail: string = await new Promise((resolve, reject) => {
+  let email: string | null = null;
+  const timeout = setTimeout(() => {
+    if (email) resolve(email);
+    else reject(new Error("Patient email not received within timeout"));
+  }, 10000);
+
+  mqttHandler.subscribe("pearl-fix/booking/canceled/patient-email", (msg) => {
+    try {
+      const { email: receivedEmail } = JSON.parse(msg.toString());
+      console.log("Received patient email:", receivedEmail);
+      email = receivedEmail;
+      clearTimeout(timeout);
+      resolve(receivedEmail);
+    } catch (error) {
+      console.error("Error processing patient email message:", error);
+    }
+  });
+});
+
+console.log("Successfully received emails:", { dentistEmail, patientEmail });
+
+// Convert timeSlot start and end from Date to string
+const timeSlot = {
+  start: booking.timeSlot.start.toISOString(),
+  end: booking.timeSlot.end.toISOString(),
+};
+
+// Send cancellation email to both patient and dentist
+await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
+    // Respond with success
+    res.status(200).json({
+      message: "Booking canceled successfully.",
+      dentistEmail,
+      patientEmail,
+    });
 
     await mqttHandler.publish(
       "pearl-fix/booking/update/dentist",

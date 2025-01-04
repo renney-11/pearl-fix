@@ -26,8 +26,8 @@ const sendCancellationEmail = async (
     from: process.env.EMAIL_USER,    // Sender's email
     to: patientEmail,                // Recipient's email (Patient's email)
     subject: 'Appointment Canceled', // Subject of the email
-    text: `Dear Patient,\n\nYour appointment scheduled for:\n\nDate: ${formattedDate}\nTime: ${formattedTime}\n\nhas been successfully canceled.\n\nBest regards,\nPearl-Fix`,
-    html: `<p>Dear Patient,</p><p>Your appointment scheduled for:</p><p><strong>Date:</strong> ${formattedDate}</p><p><strong>Time:</strong> ${formattedTime}</p><p>has been successfully canceled.</p><p>Best regards,<br/>Pearl-Fix</p>`,
+    text: `Dear Patient,\n\nYour appointment scheduled for:\n\nDate: ${formattedDate}\nTime: ${formattedTime}\n\nhas been successfully cancelled.\n\nBest regards,\nPearl-Fix`,
+    html: `<p>Dear Patient,</p><p>Your appointment scheduled for:</p><p><strong>Date:</strong> ${formattedDate}</p><p><strong>Time:</strong> ${formattedTime}</p><p>has been successfully cancelled.</p><p>Best regards,<br/>Pearl-Fix</p>`,
   };
 
   // Dentist cancellation email options
@@ -35,8 +35,8 @@ const sendCancellationEmail = async (
     from: process.env.EMAIL_USER,    // Sender's email
     to: dentistEmail,                // Recipient's email (Dentist's email)
     subject: 'Appointment Canceled', // Subject of the email
-    text: `Dear dentist,\n\nYour appointment scheduled for:\n\nDate: ${formattedDate}\nTime: ${formattedTime}\n\nhas been canceled.\n\nBest regards,\nPearl-Fix`,
-    html: `<p>Dear dentist,</p><p>Your appointment scheduled for:</p><p><strong>Date:</strong> ${formattedDate}</p><p><strong>Time:</strong> ${formattedTime}</p><p>has been canceled.</p><p>Best regards,<br/>Pearl-Fix</p>`,
+    text: `Dear dentist,\n\nYour appointment scheduled for:\n\nDate: ${formattedDate}\nTime: ${formattedTime}\n\nhas been cancelled.\n\nBest regards,\nPearl-Fix`,
+    html: `<p>Dear dentist,</p><p>Your appointment scheduled for:</p><p><strong>Date:</strong> ${formattedDate}</p><p><strong>Time:</strong> ${formattedTime}</p><p>has been cancelled.</p><p>Best regards,<br/>Pearl-Fix</p>`,
   };
 
   // Send both emails
