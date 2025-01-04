@@ -4,17 +4,10 @@ import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 let connection: Connection | null = null;
 let channel: Channel | null = null;
 
-// Reset function for clearing connection and state
-async function resetState() {
-  if (channel) await channel.close(); // Close any existing channel
-  if (connection) await connection.close(); // Close any existing connection
-  connection = null;
-  channel = null;
-}
-
+// Establish a RabbitMQ connection and channel
 async function connectRabbitMQ() {
+  const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
   if (!connection) {
-    const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost"; // Get URL from env variable
     console.log(`Connecting to RabbitMQ at ${amqpUrl}...`);
     connection = await amqp.connect(amqpUrl);
   }
@@ -24,87 +17,107 @@ async function connectRabbitMQ() {
   return { connection, channel };
 }
 
+// Ensure a queue exists
 async function setupQueue(queueName: string) {
   if (!channel) throw new Error("Channel is not initialized");
   await channel.assertQueue(queueName, { durable: true });
 }
 
-async function consumeQueue(queueName: string, callback: (msg: ConsumeMessage | null) => void) {
-  if (!channel) throw new Error("Channel is not initialized");
-  await setupQueue(queueName);
-  channel.consume(queueName, callback, { noAck: false });
-}
-
+// Main handler function
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Reset everything to ensure no old state is used
-  await resetState();  // Clear old cache, channels, and connections
-
   const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required" });
+  }
+
+  const loginQueue = "pearl-fix/authentication/login";
+  const authenticateQueue = "pearl-fix/authentication/authenticate";
+  let responseSent = false;
 
   try {
     const { connection, channel } = await connectRabbitMQ();
-    const loginQueue = "pearl-fix/authentication/login";
-    const authenticateQueue = "pearl-fix/authentication/authenticate";
 
-    // Publish login data
-    const payload = { email, password };
+    // Publish login credentials to the login queue
     await setupQueue(loginQueue);
+    const payload = { email, password };
     channel.sendToQueue(loginQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
-    console.log("Message published:", payload);
+    console.log("Message published to login queue:", payload);
 
-    // Consume the authentication queue
+    // Listen for responses from the authenticate queue
     console.log("Listening for response on authenticate queue...");
     await setupQueue(authenticateQueue);
 
-    let responseReceived = false;
     const timeout = setTimeout(() => {
-      if (!responseReceived) {
+      if (!responseSent) {
         console.error("Timeout waiting for response.");
+        responseSent = true;
         res.status(500).json({ error: "Failed to receive authentication response." });
-        channel?.close();
-        connection?.close();
+        cleanup(channel, connection);
       }
     }, 10000); // 10 seconds timeout
 
-    await consumeQueue(authenticateQueue, (msg) => {
-      if (msg) {
-        const messageContent = msg.content.toString();
-        console.log("Message received on authenticate queue:", messageContent);
+    channel.consume(
+      authenticateQueue,
+      (msg) => {
+        if (msg) {
+          const message = JSON.parse(msg.content.toString());
+          console.log("Message received from authenticate queue:", message);
 
-        try {
-          const parsedMsg = JSON.parse(messageContent);
-          if (parsedMsg.message && parsedMsg.message === "Invalid credentials") {
-            console.log("Invalid credentials for email:", email);
-            channel.ack(msg); // Acknowledge the message
-            clearTimeout(timeout); // Clear timeout
-
-            res.status(401).json({ error: "Invalid credentials" });  // Respond with error
-          } else if (parsedMsg.token) {
-            console.log("Valid token received:", parsedMsg.token);
-            channel.ack(msg); // Acknowledge the message
-            clearTimeout(timeout); // Clear timeout
-
-            res.status(200).json({ token: parsedMsg.token });  // Send token if valid
-          } else {
-            console.error("Unexpected message format received.");
-            channel.ack(msg); // Acknowledge the message
-            res.status(500).json({ error: "Unexpected message format" });
+          if (!responseSent) {
+            if (message.token) {
+              responseSent = true;
+              clearTimeout(timeout);
+              channel.ack(msg); // Acknowledge the message
+              res.status(200).json({ token: message.token });
+              cleanup(channel, connection);
+            } else if (message.error) {
+              responseSent = true;
+              clearTimeout(timeout);
+              channel.ack(msg); // Acknowledge the message
+              res.status(401).json({ error: message.error });
+              cleanup(channel, connection);
+            } else {
+              console.error("Unexpected message format:", message);
+              channel.ack(msg);
+              res.status(500).json({ error: "Unexpected message format." });
+              cleanup(channel, connection);
+            }
           }
-        } catch (error) {
-          console.error("Error parsing message:", error);
-          res.status(500).json({ error: "Internal error while processing message" });
         }
-      }
-    });
+      },
+      { noAck: false }
+    );
   } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Internal server error." });
-    await resetState();  // Reset on error as well
+    console.error("Error handling request:", error);
+    if (!responseSent) {
+      res.status(500).json({ error: "Internal server error." });
+    }
+    cleanup(channel, connection);
+  }
+}
+
+// Cleanup function to safely close RabbitMQ connections and channels
+async function cleanup(channel: Channel | null, connection: Connection | null) {
+  try {
+    if (channel) {
+      await channel.close();
+      console.log("RabbitMQ channel closed.");
+    }
+    if (connection) {
+      await connection.close();
+      console.log("RabbitMQ connection closed.");
+    }
+  } catch (error) {
+    console.error("Error during cleanup:", error);
+  } finally {
+    channel = null;
+    connection = null;
   }
 }
