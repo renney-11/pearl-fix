@@ -1,13 +1,12 @@
-import { RequestHandler } from "express";
 import bcrypt from "bcryptjs";
-import { MQTTHandler } from "../mqtt/MqttHandler";
-import Patient from "../models/Patient";
-import Dentist from "../models/Dentist";
-import { IPatient } from "../models/Patient";
-import { IDentist } from "../models/Dentist";
-import { validateFields, validateStringLength, validateEmailFormat, validateNameHasSpace } from "../middlewares/validators";
-import { generateToken } from "../utils/tokenUtils"; // Import generateToken
+import { RequestHandler } from "express";
 import { jwtDecrypt } from "jose";
+import mongoose from "mongoose";
+import { validateEmailFormat, validateFields, validateNameHasSpace, validateStringLength } from "../middlewares/validators";
+import Dentist, { IDentist } from "../models/Dentist";
+import Patient, { IPatient } from "../models/Patient";
+import { MQTTHandler } from "../mqtt/MqttHandler";
+import { generateToken } from "../utils/tokenUtils"; // Import generateToken
 
 declare global {
   namespace Express {
@@ -380,6 +379,49 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         console.error("Error processing find dentist message:", errorMessage);
       }
     });
+
+    // Subscribe to the topic where the booking service requests to find a dentist for a clinic
+await mqttHandler.subscribe("pearl-fix/booking/find/dentist/for-clinic", async (msg) => {
+  try {
+    console.log("Message received from booking-service:", msg);
+
+    let parsedMessage;
+    try {
+      parsedMessage = JSON.parse(msg);
+    } catch (err) {
+      console.error("Failed to parse message:", err);
+      return;
+    }
+
+    const { clinicId } = parsedMessage;  // Extract the clinicId from the message
+
+    if (!clinicId) {
+      console.error("Missing clinicId in the request");
+      return;
+    }
+
+    // Find the dentist associated with the clinic
+    let dentist: IDentist | null = await Dentist.findOne({ clinic: new mongoose.Types.ObjectId(clinicId) });
+
+    if (!dentist) {
+      console.error("No dentist found for clinicId:", clinicId);
+      return;
+    }
+
+    console.log("Dentist found:", dentist);
+
+    // Publish the dentist's email to a new topic for further processing
+    await mqttHandler.publish(
+      "pearl-fix/booking/find/dentist/email", // New topic to notify the relevant service
+      JSON.stringify({ email: dentist.email }) // Send the dentist's email
+    );
+    console.log(`Published dentist's email to "pearl-fix/booking/find/dentist/email": ${dentist.email}`);
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Error processing find dentist message:", errorMessage);
+  }
+});
     await mqttHandler.subscribe("pearl-fix/availability/create/id", handleAvailabilityCreateIdMessage);
 
     console.log("Subscriptions for registration and login initialized.");

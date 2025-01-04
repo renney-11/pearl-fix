@@ -59,6 +59,93 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
 
     const patientIdFromMQTT = receivedPatient._id;
 
+    // Process clinic data
+    await mqttHandler.publish(
+      "pearl-fix/booking/find/clinic",
+      JSON.stringify({ dentistId })
+    );
+    console.log(`Published dentistId to "pearl-fix/booking/find/clinic":`, dentistId);
+
+    const clinic: any = await new Promise((resolve, reject) => {
+      let clinicData: any = null;
+      const timeout = setTimeout(() => {
+        if (clinicData) {
+          resolve(clinicData);
+        } else {
+          reject(new Error("No clinic received from MQTT subscription"));
+        }
+      }, 10000);
+
+      mqttHandler.subscribe("pearl-fix/booking/clinic", (msg) => {
+        try {
+          const message = JSON.parse(msg.toString());
+          console.log("Message received on 'pearl-fix/booking/clinic':", message);
+
+          if (message.clinic) {
+            clearTimeout(timeout);
+            resolve(message.clinic);
+          }
+        } catch (error) {
+          console.error("Error processing clinic message:", error);
+        }
+      });
+    });
+
+    if (!clinic?._id) {
+      console.error("Clinic not found from MQTT data.");
+      await mqttHandler.publish(
+        "pearl-fix/availability/confirmation",
+        JSON.stringify({ status: "failure", message: "Clinic not found from MQTT data." })
+      );
+      return; // Exit on failure
+    }
+
+// Extract clinic name and address
+const clinicName = clinic.clinicName;
+const clinicAddress = clinic.address;
+
+const clinicId = clinic._id; // Make sure to get clinicId
+
+// Publish clinicId to an MQTT topic for the auth service to subscribe to
+await mqttHandler.publish(
+  "pearl-fix/booking/find/dentist/for-clinic", // Topic to notify auth service
+  JSON.stringify({ clinicId }) // Sending the clinicId to find the relevant dentist
+);
+console.log(`Published clinicId to "pearl-fix/booking/find/dentist/for-clinic": ${clinicId}`);
+
+const dentistEmail: string = await new Promise((resolve, reject) => {
+  let dentistEmailData: string | null = null;
+  const timeout = setTimeout(() => {
+    if (dentistEmailData) {
+      resolve(dentistEmailData);
+    } else {
+      reject(new Error("No dentist email received from MQTT subscription"));
+    }
+  }, 10000);
+
+  mqttHandler.subscribe("pearl-fix/booking/find/dentist/email", (msg) => {
+    try {
+      const message = JSON.parse(msg.toString());
+      console.log("Message received on 'pearl-fix/booking/find/dentist/email':", message);
+
+      if (message.email) {
+        dentistEmailData = message.email;
+        clearTimeout(timeout);
+        resolve(dentistEmailData);
+      }
+    } catch (error) {
+      console.error("Error processing dentist email message:", error);
+    }
+  });
+});
+
+if (!dentistEmail) {
+  res.status(404).json({ message: "Dentist email not found." });
+  return;
+}
+
+console.log("Received dentist email:", dentistEmail);
+
     // Directly check if availability exists for the selected dentist and time slot
     const availability = await Availability.findOne({
       dentist: dentistId,
@@ -92,6 +179,8 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
       availabilityId: availability._id,
       timeSlot,
       status: "booked",
+      clinicName,
+      clinicAddress,
     });
 
     await booking.save();
@@ -125,7 +214,7 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
 
     // Send the email confirmation to the patient
     const patientName = receivedPatient.name; // Assuming the patient name is available
-    await sendEmailConfirmation(patientEmail, patientName, timeSlot);
+    await sendEmailConfirmation(patientEmail, receivedPatient.name, timeSlot, clinicName, clinicAddress, dentistEmail);
 
     console.log(`Booking confirmation email sent to: ${patientEmail}`);
 
