@@ -92,7 +92,7 @@ export default function Login() {
             disabled={loading}
             className={`py-2 px-8 mt-4 ${loading ? "bg-gray-400" : "bg-main-blue"} text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block`}
             >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "logging in..." : "login"}
             </button>
         </form>
       </div>
