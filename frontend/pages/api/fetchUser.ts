@@ -1,10 +1,16 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 
+// Initial cache setup
+let emailCache: { token: string | null; email: string | null } = {
+  token: null,
+  email: null,
+};
+
 let connection: Connection | null = null;
 let channel: Channel | null = null;
 
-// Establish a RabbitMQ connection and channel
+// Function to establish a RabbitMQ connection
 async function connectRabbitMQ() {
   const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
   if (!connection) {
@@ -17,76 +23,72 @@ async function connectRabbitMQ() {
   return { connection, channel };
 }
 
-// Ensure a queue exists
+// Ensure the queue exists
 async function setupQueue(queueName: string) {
   if (!channel) throw new Error("Channel is not initialized");
   await channel.assertQueue(queueName, { durable: true });
 }
 
-// Main handler function
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { email, password } = req.body;
+  const { token } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
+  if (!token) {
+    return res.status(400).json({ error: "Token is required" });
   }
 
-  const loginQueue = "pearl-fix/authentication/login";
-  const authenticateQueue = "pearl-fix/authentication/authenticate";
+  const requestQueue = "pearl-fix/authentication/verify-patient";
+  const responseQueue = "pearl-fix/authentication/verify-patient/email";
   let responseSent = false;
 
   try {
     const { connection, channel } = await connectRabbitMQ();
 
-    // Publish login credentials to the login queue
-    await setupQueue(loginQueue);
-    const payload = { email, password };
-    channel.sendToQueue(loginQueue, Buffer.from(JSON.stringify(payload)), {
+    // Publish the token to the request queue
+    await setupQueue(requestQueue);
+    channel.sendToQueue(requestQueue, Buffer.from(JSON.stringify({ token })), {
       persistent: true,
     });
-    console.log("Message published to login queue:", payload);
+    console.log("Message published to queue:", { token });
 
-    // Listen for responses from the authenticate queue
-    console.log("Listening for response on authenticate queue...");
-    await setupQueue(authenticateQueue);
-
+    // Set a timeout for waiting on the response
     const timeout = setTimeout(() => {
       if (!responseSent) {
-        console.error("Timeout waiting for response.");
         responseSent = true;
-        res.status(500).json({ error: "Failed to receive authentication response." });
+        console.error("Timeout waiting for email.");
+        res.status(500).json({ error: "Failed to receive email." });
         cleanup(channel, connection);
       }
-    }, 10000); // 10 seconds timeout
+    }, 15000); // 15 seconds timeout
 
+    // Consume the response queue for the email
+    await setupQueue(responseQueue);
     channel.consume(
-      authenticateQueue,
+      responseQueue,
       (msg) => {
         if (msg) {
           const message = JSON.parse(msg.content.toString());
-          console.log("Message received from authenticate queue:", message);
+          console.log("Message received from response queue:", message);
 
           if (!responseSent) {
-            if (message.token) {
+            if (message.email) {
+              // Cache the email with the associated token
+              emailCache = {
+                token,
+                email: message.email,
+              };
               responseSent = true;
               clearTimeout(timeout);
               channel.ack(msg); // Acknowledge the message
-              res.status(200).json({ token: message.token });
-              cleanup(channel, connection);
-            } else if (message.error) {
-              responseSent = true;
-              clearTimeout(timeout);
-              channel.ack(msg); // Acknowledge the message
-              res.status(401).json({ error: message.error });
+              res.status(200).json({ email: message.email });
               cleanup(channel, connection);
             } else {
-              console.error("Unexpected message format:", message);
+              console.error("Invalid message format:", message);
               channel.ack(msg);
-              res.status(500).json({ error: "Unexpected message format." });
+              res.status(500).json({ error: "Invalid message format." });
               cleanup(channel, connection);
             }
           }
@@ -103,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// Cleanup function to safely close RabbitMQ connections and channels
+// Cleanup function for safely closing RabbitMQ connections and channels
 async function cleanup(channel: Channel | null, connection: Connection | null) {
   try {
     if (channel) {

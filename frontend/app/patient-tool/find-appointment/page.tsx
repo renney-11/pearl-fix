@@ -7,11 +7,14 @@ import { useRouter } from "next/navigation";
 
 export default function Appointment() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
   const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
+  const [dentistId, setDentistId] = useState<string | null>(null);
+  const [clinicId, setClinicId] = useState<string | null>(null);   
   const router = useRouter();
 
 
@@ -29,6 +32,8 @@ export default function Appointment() {
         // Transform timeSlots into a date-keyed structure
         if (data && data.timeSlots) {
           const transformedAvailabilities: Record<string, any> = {};
+          let extractedDentistId: string | null = null;
+
           data.timeSlots.forEach((slot: any) => {
             const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
             if (!transformedAvailabilities[dateKey]) {
@@ -36,13 +41,21 @@ export default function Appointment() {
                 timeSlots: [],
               };
             }
+            if (!extractedDentistId && slot.dentist) {
+              extractedDentistId = slot.dentist;
+            }
             transformedAvailabilities[dateKey].timeSlots.push(slot);
           });
 
           setAvailabilities(transformedAvailabilities); // Store transformed data
+          setDentistId(extractedDentistId || null);
+          setClinicId(data.clinicId);
           console.log("Transformed availabilities:", transformedAvailabilities);
         } else {
           setAvailabilities(null); // No availabilities found
+          setDentistId(null);
+          setClinicId(null);
+          console.error("No availabilities found or invalid response format.");
         }
       } catch (error) {
         console.error("Error fetching availabilities:", error);
@@ -188,30 +201,46 @@ export default function Appointment() {
     } else {
       setAvailableTimes([]);
     }
+    setSelectedTime(null);
   };  
 
   // Handle saving the booking
   const handleSave = async () => {
-    if (!selectedDate || !availableTimes.length) return;
-
+    console.log("Selected Date:", selectedDate);
+    console.log("Selected Time:", selectedTime);
+    console.log("Dentist ID:", dentistId);
+    console.log("Clinic ID:", clinicId);
+    
+    if (!selectedDate || !selectedTime || !dentistId || !clinicId) return;
+  
     const payload = {
       date: selectedDate.toISOString(),
-      time: availableTimes[0],
+      time: selectedTime,
+      dentistId,
+      clinicId,
     };
-
+  
     try {
       await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+  
+      // Save both date and time in sessionStorage
+      sessionStorage.setItem("selectedDate", selectedDate.toISOString());
+      sessionStorage.setItem("selectedTime", selectedTime);
+      sessionStorage.setItem("dentist", dentistId);
+      sessionStorage.setItem("clinic", clinicId);
 
+  
       router.push(`/patient-tool/book-appointment`);
     } catch (err) {
       console.error("Error saving booking:", err);
       alert("Failed to book appointment.");
     }
   };
+  
 
   return (
     <div>
@@ -351,6 +380,7 @@ export default function Appointment() {
                         name="time"
                         value={time}
                         className="hidden peer"
+                        onChange={() => setSelectedTime(time)}
                       />
                       <label
                         htmlFor={time}
@@ -367,7 +397,7 @@ export default function Appointment() {
                     className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
                     onClick={handleSave}
                   >
-                    save
+                    next
                   </button>
                 </div>
               </div>
