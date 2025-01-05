@@ -394,7 +394,7 @@ export default function Appointment() {
                 <div className="flex items-center justify-center mt-4">
                   <button
                     type="button"
-                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
+                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
                     onClick={handleSave}
                   >
                     next
