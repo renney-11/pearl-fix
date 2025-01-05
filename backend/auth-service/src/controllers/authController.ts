@@ -1,12 +1,14 @@
 import bcrypt from "bcryptjs";
 import { RequestHandler } from "express";
 import { jwtDecrypt } from "jose";
+import { jwtVerify, JWTPayload } from "jose";
 import mongoose from "mongoose";
 import { validateEmailFormat, validateFields, validateNameHasSpace, validateStringLength } from "../middlewares/validators";
 import Dentist, { IDentist } from "../models/Dentist";
 import Patient, { IPatient } from "../models/Patient";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
+
 
 declare global {
   namespace Express {
@@ -542,6 +544,71 @@ await mqttHandler.subscribe("pearl-fix/booking/canceled", async (msg) => {
       console.error("Error processing verify dentist message:", error);
     }
   });
+
+  await mqttHandler.subscribe("pearl-fix/authentication/verify-patient", async (msg) => {
+    console.log("Received MQTT message on 'pearl-fix/authentication/verify-patient':", msg.toString());
+  
+    try {
+      // Parse the incoming message
+      let message;
+      try {
+        message = JSON.parse(msg.toString());
+      } catch (parseError) {
+        console.error("Failed to parse MQTT message:", msg.toString(), parseError);
+        return;
+      }
+  
+      const { token } = message;
+      if (!token) {
+        console.error("No token provided in the message.");
+        return;
+      }
+  
+      // Validate the token
+      const decoded = await validateToken(token);
+      if (!decoded) {
+        console.error("Invalid token provided:", token);
+        return;
+      }
+  
+      const { id, type } = decoded;
+  
+      // Ensure the user type is 'patient'
+      if (type !== "patient") {
+        console.error("Token is not associated with a patient:", decoded);
+        return;
+      }
+  
+      // Fetch the patient data
+      const patient = await Patient.findById(id).select("-password");
+      if (!patient) {
+        console.error(`Patient with ID ${id} not found.`);
+        await mqttHandler.publish(
+          "pearl-fix/authentication/verify-patient/email",
+          JSON.stringify({ success: false, error: "Patient not found" })
+        );
+        return;
+      }
+  
+      console.log("Patient verified:", patient);
+  
+      // Publish a success message with the patient's email
+      await mqttHandler.publish(
+        "pearl-fix/authentication/verify-patient/email",
+        JSON.stringify({ success: true, email: patient.email })
+      );
+      console.log("Published email response to 'pearl-fix/authentication/verify-patient/email':", patient.email);
+  
+    } catch (error) {
+      console.error("Error processing verify patient message:", error);
+  
+      // Always publish a failure message if any error occurs
+      await mqttHandler.publish(
+        "pearl-fix/authentication/verify-patient/email",
+        JSON.stringify({ success: false, error: "Internal server error" })
+      );
+    }
+  });
   
   function getStoredTokenForUser(id: any) {
     throw new Error("Function not implemented.");
@@ -754,7 +821,6 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
-// Function to validate the token and decode it (you need to implement this based on your auth system)
 async function validateToken(token: string) {
   try {
     // Ensure your JWT secret key is a Buffer and is properly decoded
