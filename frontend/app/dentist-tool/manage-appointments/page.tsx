@@ -102,7 +102,7 @@ export default function UpcomingAppointments() {
                 {groupedAppointments[date].map((appointment, idx) => (
                   <div
                     key={idx}
-                    className="p-4 mb-4 border-2 border-white rounded-md bg-transparent-blue"
+                    className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]"
                   >
                     <div className="flex justify-between items-center">
                       {/* FontAwesome Icon */}
@@ -110,7 +110,7 @@ export default function UpcomingAppointments() {
                         <FontAwesomeIcon
                           icon={faHospitalUser}
                           style={{
-                            color: "#ffffff",
+                            color: "#ffff",
                             fontSize: "50px",
                             marginRight: "12px",
                             marginTop: "4px"
@@ -125,7 +125,8 @@ export default function UpcomingAppointments() {
 
                       {/* Cancel Button */}
                       <button
-                        className="bg-red-500 text-white py-1 px-3 rounded-md text-sm hover:bg-red-600"
+                        className="bg-red-600 text-white py-1 px-3 rounded-md text-sm 
+                        hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
                         onClick={() => handleCancel(appointment.time, appointment.patientName)}
                       >
                         Cancel

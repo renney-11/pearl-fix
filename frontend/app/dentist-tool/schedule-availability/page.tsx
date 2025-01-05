@@ -317,10 +317,10 @@ export default function Appointment() {
           </nav>
 
           <SubBackground>
-          <h2 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+          <h1 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
           Schedule Your Availability
-          </h2>
-          <div className="text-lg font-medium text-[#1E3582] text-center mb-8">
+          </h1>
+          <div className="text-lg text-gray-600 mb-3 text-center">
           <p>
             Use the calendar below to select each date and define the available times for that day. 
           </p>
