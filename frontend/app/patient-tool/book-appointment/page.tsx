@@ -257,41 +257,42 @@ export default function Booking() {
             </div>
 
 
-              <div className="flex items-start justify-between space-x-8 mt-20 mb-20">
-              {/* Date */}
-              <div className="flex flex-col items-start space-y-2">
-                <p className="font-bold text-xl text-main-blue">Date:</p>
-                <p className="text-xl text-main-blue">{selectedDate || "Loading..."}</p>
-              </div>
-              <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
-              
-              {/* Time */}
-              <div className="flex flex-col items-start space-y-2">
-                <p className="font-bold text-xl text-main-blue">Time:</p>
-                <p className="text-xl text-main-blue">{selectedTime || "Loading..."}</p>
-              </div>
-              <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
-              
-              {/* Clinic */}
-              <div className="flex flex-col items-start space-y-2">
-                <p className="font-bold text-xl text-main-blue">Clinic:</p>
-                <p className="text-xl text-main-blue">{selectedClinicName || "Loading..."}</p>
-              </div>
-              <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
-              
-              {/* Address */}
-              <div className="flex flex-col items-start space-y-2">
-                <p className="font-bold text-xl text-main-blue">Address:</p>
-                <p className="text-xl text-main-blue">{selectedClinicAddress || "Loading..."}</p>
-              </div>
-              <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
-              
-              {/* Email */}
-              <div className="flex flex-col items-start space-y-2">
-                <p className="font-bold text-xl text-main-blue">Your Email:</p>
-                <p className="text-xl text-main-blue">{selectedEmail || "Loading..."}</p>
-              </div>
+            <div className="flex flex-col tablet:flex-row items-start justify-between space-x-8 mt-20 mb-20">
+            {/* Date */}
+            <div className="flex flex-col items-start space-y-2 w-full">
+              <p className="font-bold text-xl text-main-blue">Date:</p>
+              <p className="text-xl text-main-blue">{selectedDate || "Loading..."}</p>
             </div>
+            <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
+
+            {/* Time */}
+            <div className="flex flex-col items-start space-y-2 w-full">
+              <p className="font-bold text-xl text-main-blue">Time:</p>
+              <p className="text-xl text-main-blue">{selectedTime || "Loading..."}</p>
+            </div>
+            <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
+
+            {/* Clinic */}
+            <div className="flex flex-col items-start space-y-2 w-full">
+              <p className="font-bold text-xl text-main-blue">Clinic:</p>
+              <p className="text-xl text-main-blue">{selectedClinicName || "Loading..."}</p>
+            </div>
+            <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
+
+            {/* Address */}
+            <div className="flex flex-col items-start space-y-2 w-full">
+              <p className="font-bold text-xl text-main-blue">Address:</p>
+              <p className="text-xl text-main-blue">{selectedClinicAddress || "Loading..."}</p>
+            </div>
+            <div className="border-l-2 border-gray-300 h-24"></div> {/* Vertical Divider */}
+
+            {/* Email */}
+            <div className="flex flex-col items-start space-y-2 w-full">
+              <p className="font-bold text-xl text-main-blue">Your Email:</p>
+              <p className="text-xl text-main-blue">{selectedEmail || "Loading..."}</p>
+            </div>
+          </div>
+
 
 
             {/* Display success or error message */}
