@@ -32,10 +32,10 @@ export default function App() {
             </ol>
             </nav>
             <SubBackground>
-            <h2 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+            <h1 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
             Find your nearest care
-          </h2>
-          <div className="text-lg font-medium text-[#1E3582] text-center mb-8">
+          </h1>
+          <div className="text-lg text-gray-600 mb-6 text-center">
             <p>Explore the map to find nearby clinics and either navigate to them or book an appointment</p>
           </div>
 
@@ -43,7 +43,7 @@ export default function App() {
             <Map />
           </div>
 
-          <div className="flex justify-start items-center gap-8 mt-5 text-[#1E3582] ml-10">
+          <div className="flex justify-start items-center gap-8 mt-5 text-gray-600 ml-10">
             <div className="flex items-center gap-2">
               <div className="text-[24px] text-[#1E3582]">
                 <FontAwesomeIcon icon={faStreetView} />

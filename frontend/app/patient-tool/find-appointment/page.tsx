@@ -319,6 +319,19 @@ export default function Appointment() {
           </nav>
 
           <SubBackground>
+          <h1 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+            Find an Appointment at Your Chosen Clinic
+          </h1>
+          <div className="text-lg text-gray-600 mb-6 text-center">
+            <p>
+              Below, you can view the clinic's schedule. You can choose from the
+              available dates and times.
+            </p>
+            <p>
+              By clicking on a highlighted date, you'll be able to select an available time slot to book your appointment.
+            </p>
+          </div>
+
             <div className="flex items-center justify-center hover:max-h-screen ">
               <div className="lg:w-7/12 md:w-9/12 sm:w-10/12 mx-auto p-4">
                 <div className="bg-white-blue shadow-lg rounded-lg overflow-hidden">
