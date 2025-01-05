@@ -63,7 +63,8 @@ export default function App() {
 
             <button
               onClick={scrollToDescription}
-              className="mt-5 px-4 py-2 text-white bg-main-blue rounded-lg hover:bg-main-blue-dark
+              className="mt-5 px-4 py-2 text-white bg-main-blue rounded-lg hover:bg-main-blue-dark 
+              hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out
                         laptop:px-6 laptop:py-3
                         mobileL:px-3 mobileL:py-1 mobileM:px-2 mobileM:py-1">
               read more about us below

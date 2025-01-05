@@ -251,7 +251,7 @@ const Map: React.FC = () => {
   };
 
   return (
-    <div className="relative h-[400px] w-full">
+    <div className="relative h-[400px] w-full border-2 border-[#1E3582]">
       <MapContainer
         center={gothenburgCoords}
         zoom={13}
