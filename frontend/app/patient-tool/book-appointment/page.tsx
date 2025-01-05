@@ -13,8 +13,11 @@ export default function Booking() {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
 
+  const [responseMessage, setResponseMessage] = useState<string | null>(null);
+  const [responseMessageType, setResponseMessageType] = useState<"success" | "error" | null>(null); // success or error
 
 
+/*
   const fetchUserEmail = async (token: string) => {
     try {
       const response = await fetch("/api/fetchUser", {
@@ -34,7 +37,7 @@ export default function Booking() {
       alert("Failed to retrieve user email.");
       return null;
     }
-  };
+  };*/
 
 
   // Retrieve date and time from sessionStorage
@@ -53,7 +56,7 @@ export default function Booking() {
     if(storedClinicName) setSelectedClinicName(storedClinicName);
     if(storedClinicAddress) setSelectedClinicAddress(storedClinicAddress);
     if (storedEmail) setSelectedEmail(storedEmail);
-    if (storedUser) {
+    /*if (storedUser) {
         // Fetch the user email from the backend using the authToken
         const fetchEmail = async () => {
           const email = await fetchUserEmail(storedUser);
@@ -61,7 +64,7 @@ export default function Booking() {
         };
         
         fetchEmail();
-      }
+      }*/
     }, []);
 
     // Create start and end times based on stored selectedDate and selectedTime
@@ -97,7 +100,7 @@ export default function Booking() {
 
   const createBooking = async () => {
     console.log("DentistId:", selectedDentist);
-    console.log("Patient Email:", selectedUser);
+    console.log("Patient Email:", selectedEmail);
     
     // Ensure time is correctly formatted in UTC
     const timeSlotStart = new Date(selectedDate + " " + selectedTime + ":00 GMT"); // Assuming selectedTime is "13:00"
@@ -106,28 +109,40 @@ export default function Booking() {
   
     console.log("Time Slot:", timeSlotStart.toISOString(), timeSlotEnd.toISOString());
   
-    if (!selectedDentist || !selectedUser) return;
+    if (!selectedDentist || !selectedEmail) return;
   
     const start = timeSlotStart.toISOString();
     const end = timeSlotEnd.toISOString();
 
     const payload = {
       dentistId: selectedDentist,
-      patientEmail: selectedUser,
+      patientEmail: selectedEmail,
       timeSlot: { "start": start, "end": end },
     };
   
     try {
-      await fetch("/api/createBooking", {
+      const response = await fetch("/api/createBooking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      if (response.ok) {
+        setResponseMessage("Booking successfully created!");
+        setResponseMessageType("success");
+      } else {
+        const data = await response.json();
+        setResponseMessage(data.error || "Failed to book appointment.");
+        setResponseMessageType("error");
+      }
     } catch (err) {
       console.error("Error saving booking:", err);
-      alert("Failed to book appointment.");
+      setResponseMessage("An error occurred while saving the booking.");
+      setResponseMessageType("error");
     }
   };
+
+
   
 
   return (
@@ -252,6 +267,17 @@ export default function Booking() {
                 Your Email: {selectedEmail || "Loading..."} 
               </p>
             </div>
+            {/* Display success or error message */}
+            {responseMessage && (
+              <div
+                className={`mt-4 p-4 rounded-lg ${
+                  responseMessageType === "success" ? "text-green-500 text-center" : "text-red-500 text-center"
+                }`}
+              >
+                <p>{responseMessage}</p>
+              </div>
+            )}
+
             <div className="flex items-center justify-center mt-4">
               <button
                 type="button"

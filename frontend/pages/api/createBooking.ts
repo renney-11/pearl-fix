@@ -87,41 +87,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }, 10000); // 10 seconds timeout
 
     channel.consume(
-      authenticateQueue,
-      (msg) => {
-        if (msg) {
-          const message = JSON.parse(msg.content.toString());
-          console.log("Message received from authenticate queue:", message);
-
-          if (!responseSent) {
-            if (message.token) {
-              responseSent = true;
-              clearTimeout(timeout);
-              channel.ack(msg);
-              res.status(200).json({ token: message.token });
-              cleanup();
-            } else if (message.error) {
-              responseSent = true;
-              clearTimeout(timeout);
-              channel.ack(msg);
-              res.status(401).json({ error: message.error });
-              cleanup();
-            } else {
-              console.error("Unexpected message format:", message);
-              channel.ack(msg);
-              res.status(500).json({ error: "Unexpected message format." });
-              cleanup();
+        authenticateQueue,
+        (msg) => {
+          if (msg) {
+            const message = JSON.parse(msg.content.toString());
+            console.log("Message received from authenticate queue:", message);
+  
+            if (!responseSent) {
+              if (message.success === false) {
+                // If authentication fails or there is any server error
+                responseSent = true;
+                clearTimeout(timeout);
+                channel.ack(msg);
+                res.status(500).json({ error: message.message || 'Server error during authentication' });
+                cleanup();
+              } else if (message.success === true) {
+                // Handle the successful authentication if applicable
+                // e.g., sending a token or proceeding with the booking process
+                responseSent = true;
+                clearTimeout(timeout);
+                channel.ack(msg);
+                res.status(200).json({ message: "Booking creation successful" });
+                cleanup();
+              } else {
+                console.error("Unexpected message format:", message);
+                channel.ack(msg);
+                res.status(500).json({ error: "Unexpected message format received from authenticate queue." });
+                cleanup();
+              }
             }
           }
-        }
-      },
-      { noAck: false }
-    );
-  } catch (error) {
-    console.error("Error handling request:", error);
-    if (!responseSent) {
-      res.status(500).json({ error: "Internal server error." });
+        },
+        { noAck: false }
+      );
+    } catch (error) {
+      console.error("Error handling request:", error);
+      if (!responseSent) {
+        res.status(500).json({ error: "Internal server error." });
+      }
+      cleanup();
     }
-    cleanup();
-  }
 }
