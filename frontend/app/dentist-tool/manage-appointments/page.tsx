@@ -15,8 +15,8 @@ interface Booking {
     end: Date;
   };
   status: "available" | "booked";
-  clinicName: string; // Reference to the Clinic (optional)
-  clinicAddress: string;
+  patientName: string; // Reference to the Clinic (optional)
+  patientContact: string;
 }
 
 export default function UpcomingAppointments() {
@@ -52,8 +52,8 @@ export default function UpcomingAppointments() {
                   end: new Date(booking.end),
                 },
                 status: "booked", // Assuming all fetched bookings are "booked"
-                clinicName: booking.clinicName || "",
-                clinicAddress: booking.clinicAddress || "",
+                patientName: booking.patientName || "",
+                patientContact: booking.patientContact || "",
               }));
               setBookings(transformedBookings);
               } else {
@@ -203,7 +203,9 @@ export default function UpcomingAppointments() {
                               {new Date(booking.timeSlot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}
                             </span>
                           </p>
-                          <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientId}</span></p>
+                          <p className="text-sm font-bold text-main-blue">Patient Name: <span className="font-normal">{booking.patientName}</span></p>
+                          <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientContact}</span></p>
+
                         </div>
                       </div>
 
