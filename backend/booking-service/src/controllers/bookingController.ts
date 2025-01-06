@@ -910,12 +910,13 @@ export const getBookingsForDentist: RequestHandler = async (req, res) => {
 
 // Dentist cancels a booking
 export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<void> => {
-  const { bookingId } = req.params;
-  const { dentistId } = req.body;
+  const { bookingId, dentistId } = req.body;  // Retrieve bookingId and patientEmail from req.body
+
 
   try {
     await mqttHandler.connect();
 
+    // Fetch the booking using the provided bookingId
     const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
 
     console.log("Found Booking:", booking);
@@ -924,6 +925,7 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
       return;
     }
 
+    // Verify that the booking belongs to the provided dentistId
     if (String(booking.dentistId) !== String(dentistId)) {
       res.status(403).json({ message: "You can only cancel your own bookings." });
       return;
@@ -932,6 +934,7 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
     // Delete the booking
     await Booking.findByIdAndDelete(bookingId);
 
+    // Update the availability to mark the time slot as available
     const availability = await Availability.findOne({ _id: booking.availabilityId });
     if (availability) {
       const slot = availability.timeSlots.find(
@@ -947,64 +950,59 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
     }
 
     // Publish bookingId to the cancellation topic
-await mqttHandler.publish(
-  "pearl-fix/booking/canceled",
-  JSON.stringify({ bookingId })
-);
-console.log(`Published canceled bookingId to "pearl-fix/booking/canceled": ${bookingId}`);
+    await mqttHandler.publish(
+      "pearl-fix/booking/canceled",
+      JSON.stringify({ bookingId })
+    );
+    console.log(`Published canceled bookingId to "pearl-fix/booking/canceled": ${bookingId}`);
 
-// Subscribe and retrieve dentist's email
-const dentistEmail: string = await new Promise((resolve, reject) => {
-  let email: string | null = null;
-  const timeout = setTimeout(() => {
-    if (email) resolve(email);
-    else reject(new Error("Dentist email not received within timeout"));
-  }, 10000);
+    // Subscribe and retrieve dentist's email
+    const dentistEmail: string = await new Promise((resolve, reject) => {
+      let email: string | null = null;
+      const timeout = setTimeout(() => reject(new Error("Dentist email not received within timeout")), 10000);
 
-  mqttHandler.subscribe("pearl-fix/booking/canceled/dentist-email", (msg) => {
-    try {
-      const { email: receivedEmail } = JSON.parse(msg.toString());
-      console.log("Received dentist email:", receivedEmail);
-      email = receivedEmail;
-      clearTimeout(timeout);
-      resolve(receivedEmail);
-    } catch (error) {
-      console.error("Error processing dentist email message:", error);
-    }
-  });
-});
+      mqttHandler.subscribe("pearl-fix/booking/canceled/dentist-email", (msg) => {
+        try {
+          const { email: receivedEmail } = JSON.parse(msg.toString());
+          console.log("Received dentist email:", receivedEmail);
+          email = receivedEmail;
+          clearTimeout(timeout);
+          resolve(receivedEmail);
+        } catch (error) {
+          console.error("Error processing dentist email message:", error);
+        }
+      });
+    });
 
-// Subscribe and retrieve patient's email
-const patientEmail: string = await new Promise((resolve, reject) => {
-  let email: string | null = null;
-  const timeout = setTimeout(() => {
-    if (email) resolve(email);
-    else reject(new Error("Patient email not received within timeout"));
-  }, 10000);
+    // Subscribe and retrieve patient's email
+    const patientEmail: string = await new Promise((resolve, reject) => {
+      let email: string | null = null;
+      const timeout = setTimeout(() => reject(new Error("Patient email not received within timeout")), 10000);
 
-  mqttHandler.subscribe("pearl-fix/booking/canceled/patient-email", (msg) => {
-    try {
-      const { email: receivedEmail } = JSON.parse(msg.toString());
-      console.log("Received patient email:", receivedEmail);
-      email = receivedEmail;
-      clearTimeout(timeout);
-      resolve(receivedEmail);
-    } catch (error) {
-      console.error("Error processing patient email message:", error);
-    }
-  });
-});
+      mqttHandler.subscribe("pearl-fix/booking/canceled/patient-email", (msg) => {
+        try {
+          const { email: receivedEmail } = JSON.parse(msg.toString());
+          console.log("Received patient email:", receivedEmail);
+          email = receivedEmail;
+          clearTimeout(timeout);
+          resolve(receivedEmail);
+        } catch (error) {
+          console.error("Error processing patient email message:", error);
+        }
+      });
+    });
 
-console.log("Successfully received emails:", { dentistEmail, patientEmail });
+    console.log("Successfully received emails:", { dentistEmail, patientEmail });
 
-// Convert timeSlot start and end from Date to string
-const timeSlot = {
-  start: booking.timeSlot.start.toISOString(),
-  end: booking.timeSlot.end.toISOString(),
-};
+    // Convert timeSlot start and end from Date to string
+    const timeSlot = {
+      start: booking.timeSlot.start.toISOString(),
+      end: booking.timeSlot.end.toISOString(),
+    };
 
-// Send cancellation email to both patient and dentist
-await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
+    // Send cancellation email to both patient and dentist
+    await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
+
     // Respond with success
     res.status(200).json({
       message: "Booking canceled successfully.",
@@ -1012,39 +1010,41 @@ await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
       patientEmail,
     });
 
+    // Publish dentist updates
     await mqttHandler.publish(
       "pearl-fix/booking/update/dentist",
       JSON.stringify({
         dentistId: booking.dentistId,
         availability: {
-          _id: booking.availabilityId
+          _id: booking.availabilityId,
         },
         booking: {
-          _id: booking._id
-        }
+          _id: booking._id,
+        },
       })
     );
     console.log(`Published dentist, availability, and canceled booking to "pearl-fix/booking/update/dentist"`);
 
-
+    // Publish patient updates
     await mqttHandler.publish(
       "pearl-fix/booking/update/patient",
       JSON.stringify({
         patientId: booking.patientId,
         booking: {
-          _id: booking._id
-        }
+          _id: booking._id,
+        },
       })
     );
     console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
 
   } catch (error) {
-    console.error("Error in cancelBookingByPatient:", error);
+    console.error("Error in cancelBookingByDentist:", error);
     res.status(500).json({ message: "Server error." });
   } finally {
     mqttHandler.close();
   }
 };
+
 
 // Start listening for bookings
 listenForBookingData();
