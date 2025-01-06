@@ -2,10 +2,23 @@
 import Header from '@/src/components/header';
 import Background from '@/src/components/background';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import React, { useEffect, useRef, useState } from "react";
 import { faFaceSadTear, faHospitalUser } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
+
+interface Booking {
+  dentistId: string; // Reference to the Dentist
+  patientId: string; // Reference to the Patient
+  availabilityId: string; // Reference to Availability
+  timeSlot: {
+    start: Date;
+    end: Date;
+  };
+  status: "available" | "booked";
+  clinicId: string; // Reference to the Clinic (optional)
+}
 
 export default function UpcomingAppointments() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [appointments, setAppointments] = useState([
     {
       date: "Wednesday 16th June, 2025",
@@ -29,6 +42,19 @@ export default function UpcomingAppointments() {
       address: "Hisingen, 417 05 Göteborg, Sweden",
     },
   ]);
+
+  useEffect(() => {
+      const fetchBookings = async () => {
+        try {
+          const response = await fetch("/api/getPatientBookings");
+          const data = await response.json();
+          setBookings(data.bookings);
+        } catch (error) {
+          console.error("Error fetching bookings:", error);
+        }
+      };
+      fetchBookings();
+    }, []);
 
   const handleCancel = (time: string, dentist: string, date: string) => {
     const isConfirmed = window.confirm(`Are you sure you want to cancel the appointment with ${dentist} on ${date} at ${time}?`);
