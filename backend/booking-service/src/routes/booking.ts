@@ -3,7 +3,8 @@ import {
   createBooking,
   cancelBookingByPatient,
   cancelBookingByDentist,
-  getBookingsForPatient
+  getBookingsForPatient,
+  getBookingsForDentist
 } from "../controllers/bookingController";
 
 const router = Router();
@@ -13,6 +14,7 @@ router.route("/create").post(createBooking);
 router.route("/patient-cancel-booking").delete(cancelBookingByPatient);
 router.route("/dentist-cancel-booking/:bookingId").delete(cancelBookingByDentist);
 router.route("/getBookingsForPatients").get(getBookingsForPatient);
+router.route("/getBookingsForDentist").get(getBookingsForDentist);
 
 
 export default router;

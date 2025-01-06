@@ -382,6 +382,41 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       }
     });
 
+    // Subscribe to the topic where the dentist email is published
+mqttHandler.subscribe("pearl-fix/booking/find/dentist-id", async (msg) => {
+  try {
+    // Parse the incoming message to extract the dentist's email
+    const { email } = JSON.parse(msg.toString());
+
+    if (!email) {
+      console.error("Received email is missing.");
+      return;
+    }
+
+    // Fetch the dentist by the provided email from the database
+    const dentist = await Dentist.findOne({ email }).select("_id");
+
+    if (!dentist) {
+      console.error("Dentist not found in the database.");
+      return;
+    }
+
+    const dentistId = dentist._id;
+    console.log("Found dentistId:", dentistId);
+
+    // Now publish the dentistId to the relevant topic
+    await mqttHandler.publish(
+      "pearl-fix/booking/find/dentist-email",  // This is the topic we are publishing to
+      JSON.stringify({ dentistId })  // Send the dentistId in the message
+    );
+    
+    console.log(`Published dentistId to "pearl-fix/booking/find/dentist-id": ${dentistId}`);
+    
+  } catch (error) {
+    console.error("Error processing dentist email:", error);
+  }
+});
+
     // Subscribe to the topic where the booking service requests to find a dentist for a clinic
 await mqttHandler.subscribe("pearl-fix/booking/find/dentist/for-clinic", async (msg) => {
   try {

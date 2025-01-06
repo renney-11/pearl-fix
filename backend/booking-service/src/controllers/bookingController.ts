@@ -770,8 +770,75 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
   }
 };
 
+export const getBookingsForDentist: RequestHandler = async (req, res) => {
+  const { dentistEmail } = req.body;
 
-//FINISHES HERE
+  try {
+    // Check if dentistEmail is provided
+    if (!dentistEmail) {
+      res.status(400).json({ message: "Missing dentistEmail in request body." });
+      return;
+    }
+
+    // Publish dentist email to retrieve dentist ID
+    await mqttHandler.publish(
+      "pearl-fix/booking/find/dentist-id",  // This topic is where dentist email will trigger the response.
+      JSON.stringify({ email: dentistEmail })
+    );
+    console.log(`Published dentist email to "pearl-fix/booking/find/dentist-id": ${dentistEmail}`);
+
+    // Retrieve dentist ID from MQTT subscription (this topic now sends dentistId, not dentist)
+    const receivedDentistId: any = await new Promise((resolve, reject) => {
+      let dentistData: any = null;
+      const timeout = setTimeout(() => {
+        if (dentistData) {
+          resolve(dentistData);
+        } else {
+          reject(new Error("No dentistId received from MQTT subscription"));
+        }
+      }, 10000);
+
+      mqttHandler.subscribe("pearl-fix/booking/find/dentist-email", (msg) => {
+        try {
+          const message = JSON.parse(msg.toString());
+          console.log("Message received on 'pearl-fix/booking/find/dentist-email':", message);
+
+          // Now the message directly contains dentistId
+          if (message.dentistId) {
+            dentistData = message.dentistId;  // This is the dentistId directly
+            clearTimeout(timeout);
+            resolve(dentistData);
+          }
+        } catch (error) {
+          console.error("Error processing dentist message:", error);
+        }
+      });
+    });
+
+    const dentistIdFromMQTT = receivedDentistId;  // Use the dentistId received, not the whole object
+
+    // Fetch bookings for the dentist and exclude unnecessary fields
+    const bookings = await Booking.find({ dentistId: dentistIdFromMQTT }).select(
+      "-availabilityId -status -dentistId -updatedAt -createdAt -__v"
+    );
+
+    if (!bookings || bookings.length === 0) {
+      res.status(404).json({ message: "No bookings found for the specified dentist." });
+      return;
+    }
+
+    // Return the bookings without patient details
+    res.status(200).json({
+      message: "Bookings retrieved successfully.",
+      bookings: bookings,
+    });
+  } catch (error) {
+    console.error("Error retrieving bookings for dentist:", error);
+    res.status(500).json({ message: "Server error. Could not retrieve bookings." });
+  }
+};
+
+
 // Dentist cancels a booking
 export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<void> => {
   const { bookingId } = req.params;
