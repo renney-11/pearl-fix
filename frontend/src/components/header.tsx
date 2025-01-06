@@ -15,6 +15,14 @@ export default function Header() {
   // Logout function
   const handleLogout = () => {
     sessionStorage.removeItem("authToken");
+    sessionStorage.removeItem("email");
+    sessionStorage.removeItem("clinic");
+    sessionStorage.removeItem("clinicAddress");
+    sessionStorage.removeItem("clinicName");
+    sessionStorage.removeItem("dentist");
+    sessionStorage.removeItem("selectedTime");
+    sessionStorage.removeItem("selectedDate");
+
     setIsAuthenticated(false);
     router.push("/"); // Redirect to home page
   };
