@@ -9,6 +9,7 @@ interface Booking {
   dentistId: string; // Reference to the Dentist
   patientId: string; // Reference to the Patient
   availabilityId: string; // Reference to Availability
+  bookingId: string;
   timeSlot: {
     start: Date;
     end: Date;
@@ -70,11 +71,25 @@ export default function UpcomingAppointments() {
     const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);
     if (isConfirmed) {
       setBookings((prevBookings) =>
-        prevBookings.filter((booking) => booking.availabilityId !== bookingId)
+        prevBookings.filter((booking) => booking.bookingId !== bookingId)
       );
+      cancelBooking(bookingId);
       alert(`Appointment cancelled`);
     }
   };
+
+  const cancelBooking = async(bookingId: string) => {
+    try {
+      const response = await fetch("/api/cancelBooking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: bookingId, patientEmail: selectedEmail}), // Pass the correct field
+      });
+      const cancelResponse = await response.json();
+    } catch (error) {
+      console.error("Error canceling booking:", error);
+    }
+  }
 
   const sortedBookings = [...bookings].sort((a, b) => a.timeSlot.start.getTime() - b.timeSlot.start.getTime());
 
@@ -183,7 +198,7 @@ export default function UpcomingAppointments() {
                         <button
                           className="bg-red-600 text-white py-1 px-3 rounded-md text-sm
                           hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
-                          onClick={() => handleCancel(booking.availabilityId)}
+                          onClick={() => handleCancel(booking.bookingId)}
                         >
                           Cancel
                         </button>

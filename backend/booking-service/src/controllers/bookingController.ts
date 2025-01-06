@@ -86,7 +86,7 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
         } else {
           reject(new Error("No patient received from MQTT subscription"));
         }
-      }, 10000);
+      }, 30000);
 
       mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
         try {
@@ -383,7 +383,7 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
         } else {
           reject(new Error("No patient received from MQTT subscription"));
         }
-      }, 10000);
+      }, 30000);
 
       mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
         try {
@@ -506,6 +506,48 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
   }
 };
 
+const listenForPatientsCancelling = async (): Promise<void> => {
+  try {
+    await mqttHandler.connect();
+
+    mqttHandler.subscribe("pearl-fix/booking/patient/cancel", async (msg) => {
+      try {
+        const cancelData = JSON.parse(msg.toString());
+        console.log("Received cancel data:", cancelData);
+
+        // Validate required fields
+        if (!cancelData.bookingId || !cancelData.patientEmail) {
+          console.error("Invalid canceling data received:", cancelData);
+          return;
+        }
+
+        // Call createBooking with a mock req and res
+        const mockReq = {
+          body: cancelData,
+        } as unknown as Parameters<RequestHandler>[0];
+
+        const mockRes = {
+          status: (statusCode: number) => ({
+            json: (response: any) => {
+              console.log(`Response (${statusCode}):`, response);
+              return response;
+            },
+          }),
+        } as unknown as Parameters<RequestHandler>[1];
+
+        const mockNext = () => {}; // This is an empty function, acting as the 'next' middleware
+
+        await cancelBookingByPatient(mockReq, mockRes, mockNext);
+      } catch (error) {
+        console.error("Error processing booking data:", error);
+      }
+    });
+
+    console.log("Listening for messages on 'pearl-fix/booking/patient/cancel'...");
+  } catch (error) {
+    console.error("Error setting up MQTT listener:", error);
+  }
+};
 
 // Patient cancels booking
 export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<void> => {
@@ -516,10 +558,13 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
     if (!patientEmail) {
       res.status(400).json({ message: "Missing patientEmail in request body." });
 
-      // Publish failure status to the topic
+      // Publish failure status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
       await mqttHandler.publish(
-        "pearl-fix/booking/patient/all-data",
-        JSON.stringify({ success: false, message: "Missing patientEmail in request body." })
+        "pearl-fix/booking/patient/cancel/authenticate",
+        JSON.stringify({
+          success: false,
+          message: "Missing patientEmail in request body.",
+        })
       );
       return;
     }
@@ -540,7 +585,7 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
         } else {
           reject(new Error("No patient received from MQTT subscription"));
         }
-      }, 10000);
+      }, 30000);
 
       mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
         try {
@@ -557,6 +602,7 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
         }
       });
     });
+    
 
     const patientIdFromMQTT = receivedPatient._id;  // Retrieve patient ID from MQTT response
 
@@ -566,11 +612,29 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
     console.log("Found Booking:", booking);
     if (!booking) {
       res.status(404).json({ message: "Booking not found." });
+
+      // Publish failure status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
+      await mqttHandler.publish(
+        "pearl-fix/booking/patient/cancel/authenticate",
+        JSON.stringify({
+          success: false,
+          message: "Booking not found.",
+        })
+      );
       return;
     }
 
     if (String(booking.patientId) !== String(patientIdFromMQTT)) {
       res.status(403).json({ message: "You can only cancel your own bookings." });
+
+      // Publish failure status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
+      await mqttHandler.publish(
+        "pearl-fix/booking/patient/cancel/authenticate",
+        JSON.stringify({
+          success: false,
+          message: "You can only cancel your own bookings.",
+        })
+      );
       return;
     }
 
@@ -680,13 +744,32 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
     res.status(200).json({
       message: "Booking canceled successfully.",
     });
+
+    // Publish success status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
+    await mqttHandler.publish(
+      "pearl-fix/booking/patient/cancel/authenticate",
+      JSON.stringify({
+        success: true,
+        message: "Booking canceled successfully.",
+      })
+    );
   } catch (error) {
     console.error("Error in cancelBookingByPatient:", error);
     res.status(500).json({ message: "Server error." });
+
+    // Publish failure status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
+    await mqttHandler.publish(
+      "pearl-fix/booking/patient/cancel/authenticate",
+      JSON.stringify({
+        success: false,
+        message: "Server error. Could not process cancellation.",
+      })
+    );
   } finally {
     mqttHandler.close();
   }
 };
+
 
 //FINISHES HERE
 // Dentist cancels a booking
@@ -831,3 +914,5 @@ await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
 listenForBookingData();
 
 listenForPatientsBookings();
+
+listenForPatientsCancelling();
