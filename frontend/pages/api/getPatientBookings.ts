@@ -43,45 +43,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const responseQueue = "pearl-fix/booking/patient/all-data";
     await channel.assertQueue(responseQueue, { durable: true });
 
-    console.log(`Subscribed to queue: "${responseQueue}"`);
+    const bookingsData = await new Promise<{ success: boolean; message: string; bookings?: Booking[] }>(
+      (resolve, reject) => {
+        const timeout = setTimeout(() => {
+          if (channel) channel.close();
+          if (connection) connection.close();
+          reject(new Error("Timeout waiting for booking data."));
+        }, 10000);
 
-    // Wait for the response message and get the booking data
-    const bookingsData = await new Promise<{ success: boolean; message: string; bookings: Booking[] }>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        if (channel) channel.close();
-        if (connection) connection.close();
-        reject(new Error("Timeout waiting for booking data."));
-      }, 10000); // 10 seconds timeout
-
-      channel.consume(
-        responseQueue,
-        (msg: ConsumeMessage | null) => {
-          if (msg) {
-            const message = JSON.parse(msg.content.toString());
-            console.log("Message received from queue:", message);
-
-            if (message.success) {
-              clearTimeout(timeout);
+        channel.consume(
+          responseQueue,
+          (msg: ConsumeMessage | null) => {
+            if (msg) {
+              const message = JSON.parse(msg.content.toString());
               channel.ack(msg);
-              resolve(message);
-            } else {
               clearTimeout(timeout);
-              channel.ack(msg);
-              reject(new Error(message.message || "Failed to retrieve bookings."));
+
+              if (message.success) {
+                console.log(message);
+                resolve(message);
+              } else {
+                console.log({ success: false, message: "No bookings made for the specified patient." })
+                resolve({ success: false, message: "No bookings made for the specified patient." });
+              }
             }
-          }
-        },
-        { noAck: false } // Acknowledge messages manually
-      );
-    });
+          },
+          { noAck: false }
+        );
+      }
+    );
 
-    // Respond with the bookings data
-    res.status(200).json({ bookings: bookingsData.bookings });
+    if (bookingsData.success) {
+      const enrichedBookings = bookingsData.bookings.map((booking) => ({
+        ...booking,
+        startTime: booking.timeSlot?.start,
+        endTime: booking.timeSlot?.end,
+      }));
+      return res.status(200).json({ success: true, bookings: enrichedBookings });
+    } else {
+      return res.status(200).json({ success: false, message: bookingsData.message });
+    }
   } catch (error) {
     console.error("Error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error",
+    });
   } finally {
-    // Ensure the connection and channel are closed
     try {
       if (channel) await channel.close();
       if (connection) await connection.close();
