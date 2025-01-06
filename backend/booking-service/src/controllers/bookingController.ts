@@ -509,11 +509,57 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
 
 // Patient cancels booking
 export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<void> => {
-  const { bookingId } = req.params;
-  const { patientId } = req.body;
+  const { bookingId, patientEmail } = req.body;  // Retrieve bookingId and patientEmail from req.body
 
   try {
-    await mqttHandler.connect();
+    // Check if patientEmail is provided
+    if (!patientEmail) {
+      res.status(400).json({ message: "Missing patientEmail in request body." });
+
+      // Publish failure status to the topic
+      await mqttHandler.publish(
+        "pearl-fix/booking/patient/all-data",
+        JSON.stringify({ success: false, message: "Missing patientEmail in request body." })
+      );
+      return;
+    }
+
+    // Publish patient email to retrieve patient ID
+    await mqttHandler.publish(
+      "pearl-fix/booking/create/patient/email",
+      JSON.stringify({ email: patientEmail })
+    );
+    console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
+
+    // Retrieve patient data from MQTT subscription
+    const receivedPatient: any = await new Promise((resolve, reject) => {
+      let patientData: any = null;
+      const timeout = setTimeout(() => {
+        if (patientData) {
+          resolve(patientData);
+        } else {
+          reject(new Error("No patient received from MQTT subscription"));
+        }
+      }, 10000);
+
+      mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
+        try {
+          const message = JSON.parse(msg.toString());
+          console.log("Message received on 'pearl-fix/booking/create/patient':", message);
+
+          if (message.patient) {
+            patientData = message.patient;
+            clearTimeout(timeout);
+            resolve(patientData);
+          }
+        } catch (error) {
+          console.error("Error processing patient message:", error);
+        }
+      });
+    });
+
+    const patientIdFromMQTT = receivedPatient._id;  // Retrieve patient ID from MQTT response
+
     // Find booking by ID
     const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
 
@@ -523,7 +569,7 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
       return;
     }
 
-    if (String(booking.patientId) !== String(patientId)) {
+    if (String(booking.patientId) !== String(patientIdFromMQTT)) {
       res.status(403).json({ message: "You can only cancel your own bookings." });
       return;
     }
@@ -559,7 +605,6 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
     );
     console.log(`Published dentist, availability, and canceled booking to "pearl-fix/booking/update/dentist"`);
 
-
     await mqttHandler.publish(
       "pearl-fix/booking/update/patient",
       JSON.stringify({
@@ -572,71 +617,70 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
     console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
 
     // Publish bookingId to the cancellation topic
-await mqttHandler.publish(
-  "pearl-fix/booking/canceled",
-  JSON.stringify({ bookingId })
-);
-console.log(`Published canceled bookingId to "pearl-fix/booking/canceled": ${bookingId}`);
+    await mqttHandler.publish(
+      "pearl-fix/booking/canceled",
+      JSON.stringify({ bookingId })
+    );
+    console.log(`Published canceled bookingId to "pearl-fix/booking/canceled": ${bookingId}`);
 
-// Subscribe and retrieve dentist's email
-const dentistEmail: string = await new Promise((resolve, reject) => {
-  let email: string | null = null;
-  const timeout = setTimeout(() => {
-    if (email) resolve(email);
-    else reject(new Error("Dentist email not received within timeout"));
-  }, 10000);
+    // Subscribe and retrieve dentist's email
+    const dentistEmail: string = await new Promise((resolve, reject) => {
+      let email: string | null = null;
+      const timeout = setTimeout(() => {
+        if (email) resolve(email);
+        else reject(new Error("Dentist email not received within timeout"));
+      }, 10000);
 
-  mqttHandler.subscribe("pearl-fix/booking/canceled/dentist-email", (msg) => {
-    try {
-      const { email: receivedEmail } = JSON.parse(msg.toString());
-      console.log("Received dentist email:", receivedEmail);
-      email = receivedEmail;
-      clearTimeout(timeout);
-      resolve(receivedEmail);
-    } catch (error) {
-      console.error("Error processing dentist email message:", error);
-    }
-  });
-});
+      mqttHandler.subscribe("pearl-fix/booking/canceled/dentist-email", (msg) => {
+        try {
+          const { email: receivedEmail } = JSON.parse(msg.toString());
+          console.log("Received dentist email:", receivedEmail);
+          email = receivedEmail;
+          clearTimeout(timeout);
+          resolve(receivedEmail);
+        } catch (error) {
+          console.error("Error processing dentist email message:", error);
+        }
+      });
+    });
 
-// Subscribe and retrieve patient's email
-const patientEmail: string = await new Promise((resolve, reject) => {
-  let email: string | null = null;
-  const timeout = setTimeout(() => {
-    if (email) resolve(email);
-    else reject(new Error("Patient email not received within timeout"));
-  }, 10000);
+    // Subscribe and retrieve patient's email
+    const patientEmailFromMQTT: string = await new Promise((resolve, reject) => {
+      let email: string | null = null;
+      const timeout = setTimeout(() => {
+        if (email) resolve(email);
+        else reject(new Error("Patient email not received within timeout"));
+      }, 10000);
 
-  mqttHandler.subscribe("pearl-fix/booking/canceled/patient-email", (msg) => {
-    try {
-      const { email: receivedEmail } = JSON.parse(msg.toString());
-      console.log("Received patient email:", receivedEmail);
-      email = receivedEmail;
-      clearTimeout(timeout);
-      resolve(receivedEmail);
-    } catch (error) {
-      console.error("Error processing patient email message:", error);
-    }
-  });
-});
+      mqttHandler.subscribe("pearl-fix/booking/canceled/patient-email", (msg) => {
+        try {
+          const { email: receivedEmail } = JSON.parse(msg.toString());
+          console.log("Received patient email:", receivedEmail);
+          email = receivedEmail;
+          clearTimeout(timeout);
+          resolve(receivedEmail);
+        } catch (error) {
+          console.error("Error processing patient email message:", error);
+        }
+      });
+    });
 
-console.log("Successfully received emails:", { dentistEmail, patientEmail });
+    console.log("Successfully received emails:", { dentistEmail, patientEmailFromMQTT });
 
-// Convert timeSlot start and end from Date to string
-const timeSlot = {
-  start: booking.timeSlot.start.toISOString(),
-  end: booking.timeSlot.end.toISOString(),
-};
+    // Convert timeSlot start and end from Date to string
+    const timeSlot = {
+      start: booking.timeSlot.start.toISOString(),
+      end: booking.timeSlot.end.toISOString(),
+    };
 
-// Send cancellation email to both patient and dentist
-await sendCancellationEmail(patientEmail, timeSlot, dentistEmail);
-    // Respond with success
+    // Send cancellation email to both patient and dentist
+    await sendCancellationEmail(patientEmailFromMQTT, timeSlot, dentistEmail);
+
+    // Respond with success and include bookingId
     res.status(200).json({
       message: "Booking canceled successfully.",
-      dentistEmail,
-      patientEmail,
     });
-    } catch (error) {
+  } catch (error) {
     console.error("Error in cancelBookingByPatient:", error);
     res.status(500).json({ message: "Server error." });
   } finally {
@@ -644,6 +688,7 @@ await sendCancellationEmail(patientEmail, timeSlot, dentistEmail);
   }
 };
 
+//FINISHES HERE
 // Dentist cancels a booking
 export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<void> => {
   const { bookingId } = req.params;
