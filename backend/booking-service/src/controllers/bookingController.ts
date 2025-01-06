@@ -362,7 +362,7 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
 
     // Fetch the bookings for the patient and exclude unnecessary fields
     const bookings = await Booking.find({ patientId: patientIdFromMQTT }).select(
-      "-availabilityId -status -dentistId -patientId -updatedAt -createdAt -__v"
+      "-availabilityId -status -patientId -updatedAt -createdAt -__v"
     );
 
     if (!bookings || bookings.length === 0) {
@@ -370,18 +370,76 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
       return;
     }
 
-    // Send bookings without clinic details
+    // Process each booking to get clinic details using dentistId
+    const bookingsWithClinicDetails = await Promise.all(
+      bookings.map(async (booking) => {
+        const dentistId = booking.dentistId;
+
+        // Publish dentistId to retrieve clinic details
+        await mqttHandler.publish(
+          "pearl-fix/booking/find/clinic",
+          JSON.stringify({ dentistId })
+        );
+        console.log(`Published dentistId to "pearl-fix/booking/find/clinic": ${dentistId}`);
+
+        // Retrieve clinic data from MQTT subscription
+        const clinic: any = await new Promise((resolve, reject) => {
+          let clinicData: any = null;
+          const timeout = setTimeout(() => {
+            if (clinicData) {
+              resolve(clinicData);
+            } else {
+              reject(new Error("No clinic received from MQTT subscription"));
+            }
+          }, 10000);
+
+          mqttHandler.subscribe("pearl-fix/booking/clinic", (msg) => {
+            try {
+              const message = JSON.parse(msg.toString());
+              console.log("Message received on 'pearl-fix/booking/clinic':", message);
+
+              if (message.clinic) {
+                clearTimeout(timeout);
+                resolve(message.clinic);
+              }
+            } catch (error) {
+              console.error("Error processing clinic message:", error);
+            }
+          });
+        });
+
+        if (!clinic?._id) {
+          console.error("Clinic not found from MQTT data.");
+          await mqttHandler.publish(
+            "pearl-fix/availability/confirmation",
+            JSON.stringify({ status: "failure", message: "Clinic not found from MQTT data." })
+          );
+
+          // Publish failure message to the topic
+          await mqttHandler.publish(
+            "pearl-fix/booking/create/authenticate",
+            JSON.stringify({ success: false, message: "Clinic not found from MQTT data." })
+          );
+          throw new Error("Clinic not found from MQTT data.");
+        }
+
+        return {
+          clinicName: clinic.clinicName,
+          clinicAddress: clinic.address,
+          ...booking.toObject(), // Include booking details
+        };
+      })
+    );
+
     res.status(200).json({
       message: "Bookings retrieved successfully.",
-      bookings: bookings,
+      bookings: bookingsWithClinicDetails,
     });
   } catch (error) {
     console.error("Error retrieving bookings for patient:", error);
     res.status(500).json({ message: "Server error. Could not retrieve bookings." });
   }
 };
-
-
 
 
 // Patient cancels booking
