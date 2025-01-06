@@ -1,32 +1,41 @@
-import amqp, { Channel, Connection } from "amqplib";
+import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import { NextApiRequest, NextApiResponse } from "next";
 
-// Initial cache setup
+// Initial cache setup for time slots
 let timeSlotsCache: { clinicId: string | null; timeSlots: any[] } = {
   clinicId: null,
   timeSlots: [],
 };
 
-// Function to handle subscribing to the RabbitMQ queue for availabilities
-async function subscribeToAvailabilitiesQueue(channel: Channel) {
-  const availabilityAllQueue = "pearl-fix/availability/clinic/all";
-  await channel.assertQueue(availabilityAllQueue, { durable: true });
+// Helper function to initialize RabbitMQ connection and channel
+async function getAmqpChannel(): Promise<{ connection: Connection; channel: Channel }> {
+  const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
+  const connection = await amqp.connect(amqpUrl);
+  const channel = await connection.createChannel();
+  return { connection, channel };
+}
 
-  // Promise to wait for the updated time slots
+// Function to fetch availability data from RabbitMQ queue and update cache
+async function fetchAndUpdateAvailability(channel: Channel): Promise<void> {
+  const availabilityQueue = "pearl-fix/availability/clinic/all";
+  await channel.assertQueue(availabilityQueue, { durable: true });
+
   return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      console.error("Timeout waiting for availability data.");
+      reject(new Error("Timeout waiting for availability data."));
+    }, 10000); // 10 seconds timeout
+
     channel.consume(
-      availabilityAllQueue,
-      (msg) => {
+      availabilityQueue,
+      (msg: ConsumeMessage | null) => {
         if (msg) {
           try {
             const data = JSON.parse(msg.content.toString());
-            console.log(
-              "Message received on 'pearl-fix/availability/clinic/all':",
-              data
-            );
+            console.log("Message received on queue:", data);
 
             if (data.status === "success" && Array.isArray(data.timeSlots)) {
-              // Update the cache with new data
+              clearTimeout(timeout);
               timeSlotsCache = {
                 clinicId: data.clinicId || null,
                 timeSlots: data.timeSlots.map((slot: any) => ({
@@ -38,110 +47,77 @@ async function subscribeToAvailabilitiesQueue(channel: Channel) {
               };
 
               console.log("Updated timeSlotsCache:", timeSlotsCache);
+              channel.ack(msg); // Acknowledge the message
               resolve();
+            } else {
+              throw new Error("Invalid message structure.");
             }
-
-            channel.ack(msg); // Acknowledge the message
           } catch (error) {
             console.error("Error parsing message:", error);
             reject(error);
           }
         }
       },
-      { noAck: false }
+      { noAck: false } // Acknowledge messages manually
     );
   });
 }
 
-// Function to initialize the RabbitMQ connection
-async function getAmqpChannel(): Promise<amqp.Channel> {
-  const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
-  const connection = await amqp.connect(amqpUrl);
-  const channel = await connection.createChannel();
-  return channel;
+// Function to send data to RabbitMQ queue
+async function sendToQueue(channel: Channel, queue: string, data: any) {
+  await channel.assertQueue(queue, { durable: true });
+  channel.sendToQueue(queue, Buffer.from(JSON.stringify(data)), { persistent: true });
 }
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method === "GET") {
-    try {
-      const channel = await getAmqpChannel();
+// API handler
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  let connection: Connection | null = null;
+  let channel: Channel | null = null;
 
-      // Wait for the availability message to update the cache
-      await subscribeToAvailabilitiesQueue(channel);
+  try {
+    // Initialize RabbitMQ connection and channel
+    const amqpSetup = await getAmqpChannel();
+    connection = amqpSetup.connection;
+    channel = amqpSetup.channel;
 
-      console.log("Returning updated timeSlotsCache:", timeSlotsCache);
+    if (req.method === "GET") {
+      // Fetch fresh availability data from RabbitMQ and update cache
+      await fetchAndUpdateAvailability(channel);
       res.status(200).json(timeSlotsCache);
+    } else if (req.method === "POST") {
+      const { clinicId, date, time } = req.body;
 
-      // Close the channel after the request is handled
-    } catch (error) {
-      console.error("Error processing GET request:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  } else if (req.method === "POST") {
-    const { clinicId, date, time } = req.body;
+      if (!clinicId) {
+        return res.status(400).json({ error: "Clinic ID is required." });
+      }
 
-    if (!clinicId) {
-      return res.status(400).json({ error: "Clinic ID is required." });
-    }
-
-    let connection: Connection | null = null;
-    let channel: Channel | null = null;
-
-    try {
-      const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
-
-      // Connect to RabbitMQ
-      connection = await amqp.connect(amqpUrl);
-      channel = await connection.createChannel();
-
+      // Send clinicId to availability queue
       const availabilityQueue = "pearl-fix/availability/clinic-id";
-      await channel.assertQueue(availabilityQueue, { durable: true });
-
-      // Send clinicId to the queue
-      channel.sendToQueue(
-        availabilityQueue,
-        Buffer.from(JSON.stringify({ clinicId })),
-        { persistent: true }
-      );
+      await sendToQueue(channel, availabilityQueue, { clinicId });
       console.log("ClinicID sent to availability queue:", clinicId);
 
       if (date && time) {
+        // If booking data is provided, send it to the booking queue
         const bookingQueue = "pearl-fix/booking/date-time";
-        await channel.assertQueue(bookingQueue, { durable: true });
-
         const payload = { date, time, clinicId };
-        channel.sendToQueue(
-          bookingQueue,
-          Buffer.from(JSON.stringify(payload)),
-          {
-            persistent: true,
-          }
-        );
-
+        await sendToQueue(channel, bookingQueue, payload);
         console.log("Booking published:", payload);
       }
 
-      // Simulate slower POST request by adding a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Delay for 1 second
-
-      res
-        .status(200)
-        .json({ message: "Clinic ID and booking information sent." });
-    } catch (error) {
-      console.error("Error publishing booking:", error);
-      res.status(500).json({ error: "Internal server error" });
-    } finally {
-      try {
-        if (channel) await channel.close();
-        if (connection) await connection.close();
-      } catch (error) {
-        console.error("Error closing connection/channel:", error);
-      }
+      res.status(200).json({ message: "Clinic ID and booking information sent." });
+    } else {
+      res.status(405).json({ error: "Method not allowed" });
     }
-  } else {
-    res.status(405).json({ error: "Method not allowed" });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  } finally {
+    // Ensure connection and channel are properly closed
+    try {
+      if (channel) await channel.close();
+      if (connection) await connection.close();
+    } catch (error) {
+      console.error("Error closing RabbitMQ resources:", error);
+    }
   }
 }
