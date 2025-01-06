@@ -770,6 +770,44 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
   }
 };
 
+const listenForDentistBookings = async (): Promise<void> => {
+  try {
+    await mqttHandler.connect();
+
+    mqttHandler.subscribe("pearl-fix/booking/dentist/email", async (msg) => {
+      try {
+        const dentistEmail = JSON.parse(msg.toString());
+        console.log("Received dentist email:", dentistEmail);
+
+        // Call createBooking with a mock req and res
+        const mockReq = {
+          body: dentistEmail,
+        } as unknown as Parameters<RequestHandler>[0];
+
+        const mockRes = {
+          status: (statusCode: number) => ({
+            json: (response: any) => {
+              console.log(`Response (${statusCode}):`, response);
+              return response;
+            },
+          }),
+        } as unknown as Parameters<RequestHandler>[1];
+
+        const mockNext = () => {}; // This is an empty function, acting as the 'next' middleware
+
+        await getBookingsForDentist(mockReq, mockRes, mockNext);
+      } catch (error) {
+        console.error("Error processing booking data:", error);
+      }
+    });
+
+    console.log("Listening for messages on 'pearl-fix/booking/dentist/email'...");
+  } catch (error) {
+    console.error("Error setting up MQTT listener:", error);
+  }
+};
+
+
 export const getBookingsForDentist: RequestHandler = async (req, res) => {
   const { dentistEmail } = req.body;
 
@@ -1014,3 +1052,5 @@ listenForBookingData();
 listenForPatientsBookings();
 
 listenForPatientsCancelling();
+
+listenForDentistBookings();
