@@ -944,6 +944,49 @@ export const getBookingsForDentist: RequestHandler = async (req, res) => {
   }
 };
 
+const listenForDentistsCancelling = async (): Promise<void> => {
+  try {
+    await mqttHandler.connect();
+
+    mqttHandler.subscribe("pearl-fix/booking/dentist/cancel", async (msg) => {
+      try {
+        const cancelData = JSON.parse(msg.toString());
+        console.log("Received cancel data:", cancelData);
+
+        // Validate required fields
+        if (!cancelData.bookingId || !cancelData.dentistEmail) {
+          console.error("Invalid canceling data received:", cancelData);
+          return;
+        }
+
+        // Call createBooking with a mock req and res
+        const mockReq = {
+          body: cancelData,
+        } as unknown as Parameters<RequestHandler>[0];
+
+        const mockRes = {
+          status: (statusCode: number) => ({
+            json: (response: any) => {
+              console.log(`Response (${statusCode}):`, response);
+              return response;
+            },
+          }),
+        } as unknown as Parameters<RequestHandler>[1];
+
+        const mockNext = () => {}; // This is an empty function, acting as the 'next' middleware
+
+        await cancelBookingByDentist(mockReq, mockRes, mockNext);
+      } catch (error) {
+        console.error("Error processing booking data:", error);
+      }
+    });
+
+    console.log("Listening for messages on 'pearl-fix/booking/dentist/cancel'...");
+  } catch (error) {
+    console.error("Error setting up MQTT listener:", error);
+  }
+};
+
 
 // Dentist cancels a booking
 export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<void> => {
@@ -956,7 +999,7 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
 
       // Publish failure status to the topic 'pearl-fix/booking/dentist/all-data'
       await mqttHandler.publish(
-        "pearl-fix/booking/dentist/all-data",
+        "pearl-fix/booking/dentist/cancel/authenticate",
         JSON.stringify({
           success: false,
           message: "Missing dentistEmail in request body.",
@@ -996,12 +1039,26 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
     console.log("Found Booking:", booking);
     if (!booking) {
       res.status(404).json({ message: "Booking not found." });
+      await mqttHandler.publish(
+        "pearl-fix/booking/dentist/cancel/authenticate",
+        JSON.stringify({
+          success: false,
+          message: "Booking not found.",
+        })
+      );
       return;
     }
 
     // Verify that the booking belongs to the retrieved dentistId
     if (String(booking.dentistId) !== String(dentistIdFromMQTT)) {
       res.status(403).json({ message: "You can only cancel your own bookings." });
+      await mqttHandler.publish(
+        "pearl-fix/booking/dentist/cancel/authenticate",
+        JSON.stringify({
+          success: false,
+          message: "You can only cancel your own bookings.",
+        })
+      );
       return;
     }
 
@@ -1064,6 +1121,15 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
       patientEmail,
     });
 
+    // Publish success status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
+    await mqttHandler.publish(
+      "pearl-fix/booking/dentist/cancel/authenticate",
+      JSON.stringify({
+        success: true,
+        message: "Booking canceled successfully.",
+      })
+    );
+
     // Publish dentist updates
     await mqttHandler.publish(
       "pearl-fix/booking/update/dentist",
@@ -1093,6 +1159,13 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
 
   } catch (error) {
     console.error("Error in cancelBookingByDentist:", error);
+    await mqttHandler.publish(
+      "pearl-fix/booking/dentist/cancel/authenticate",
+      JSON.stringify({
+        success: false,
+        message: "Server error. Could not process cancellation.",
+      })
+    );
     res.status(500).json({ message: "Server error." });
   } finally {
     mqttHandler.close();
@@ -1108,3 +1181,5 @@ listenForPatientsBookings();
 listenForPatientsCancelling();
 
 listenForDentistBookings();
+
+listenForDentistsCancelling();

@@ -76,14 +76,28 @@ export default function UpcomingAppointments() {
 
 
   const handleCancel = (bookingId: string) => {
-    const isConfirmed = window.confirm(`Are you sure you want to cancel this booking?`);
+    const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);
     if (isConfirmed) {
       setBookings((prevBookings) =>
         prevBookings.filter((booking) => booking.bookingId !== bookingId)
       );
-      alert("Booking cancelled");
+      cancelBooking(bookingId);
+      alert(`Appointment cancelled`);
     }
   };
+
+  const cancelBooking = async(bookingId: string) => {
+    try {
+      const response = await fetch("/api/cancelBookingDentist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: bookingId, dentistEmail: selectedEmail}), // Pass the correct field
+      });
+      const cancelResponse = await response.json();
+    } catch (error) {
+      console.error("Error canceling booking:", error);
+    }
+  }
 
   // Helper function to remove ordinal suffixes
   const removeOrdinalSuffix = (dateString: string) => {
