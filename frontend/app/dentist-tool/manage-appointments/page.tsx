@@ -40,7 +40,8 @@ export default function UpcomingAppointments() {
             });
             if (response.ok) {
               const data = await response.json();
-              // Transform API response into the Booking interface structure
+              if(data.bookings>0){
+                // Transform API response into the Booking interface structure
               const transformedBookings: Booking[] = data.bookings.map((booking: any) => ({
                 dentistId: booking.dentistId,
                 patientId: booking.patientId,
@@ -55,6 +56,10 @@ export default function UpcomingAppointments() {
                 clinicAddress: booking.clinicAddress || "",
               }));
               setBookings(transformedBookings);
+              } else {
+                bookings.length===0;
+                return;
+              }
             } else {
               console.error("Failed to fetch bookings");
             }
