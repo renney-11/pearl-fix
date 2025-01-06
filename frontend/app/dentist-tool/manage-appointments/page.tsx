@@ -16,7 +16,7 @@ interface Booking {
   };
   status: "available" | "booked";
   patientName: string; // Reference to the Clinic (optional)
-  patientContact: string;
+  patientEmail: string;
 }
 
 export default function UpcomingAppointments() {
@@ -29,47 +29,50 @@ export default function UpcomingAppointments() {
     }, []);
 
     useEffect(() => {
-        if (!selectedEmail) return;
-    
-        const fetchBookings = async () => {
+      if (!selectedEmail) return;
+  
+      const fetchBookings = async () => {
           try {
-            const response = await fetch("/api/getDentistBookings", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ dentistEmail: selectedEmail }), // Pass the correct field
-            });
-            if (response.ok) {
-              const data = await response.json();
-              if(data.bookings>0){
-                // Transform API response into the Booking interface structure
-              const transformedBookings: Booking[] = data.bookings.map((booking: any) => ({
-                dentistId: booking.dentistId,
-                patientId: booking.patientId,
-                availabilityId: booking.availabilityId,
-                bookingId: booking._id,
-                timeSlot: {
-                  start: new Date(booking.start),
-                  end: new Date(booking.end),
-                },
-                status: "booked", // Assuming all fetched bookings are "booked"
-                patientName: booking.patientName || "",
-                patientContact: booking.patientContact || "",
-              }));
-              setBookings(transformedBookings);
+              const response = await fetch("/api/getDentistBookings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ dentistEmail: selectedEmail }),
+              });
+  
+              if (response.ok) {
+                  const data = await response.json();
+                  if (data.bookings && data.bookings.length > 0) {
+                      const uniqueBookings = Array.from(
+                          new Map(data.bookings.map((booking: any) => [booking._id, booking])).values()
+                      );
+                      const transformedBookings: Booking[] = uniqueBookings.map((booking: any) => ({
+                          dentistId: booking.dentistId || "",
+                          patientId: booking.patientId || "",
+                          availabilityId: booking.availabilityId || "",
+                          bookingId: booking._id || "",
+                          timeSlot: {
+                              start: new Date(booking.start),
+                              end: new Date(booking.end),
+                          },
+                          status: "booked",
+                          patientName: booking.patientName || "Unknown",
+                          patientEmail: booking.patientEmail || "Unknown",
+                      }));
+                      setBookings(transformedBookings);
+                  } else {
+                      setBookings([]);
+                  }
               } else {
-                bookings.length===0;
-                return;
+                  console.error("Failed to fetch bookings");
               }
-            } else {
-              console.error("Failed to fetch bookings");
-            }
           } catch (error) {
-            console.error("Error fetching bookings:", error);
+              console.error("Error fetching bookings:", error);
           }
-        };
-    
-        fetchBookings();
-      }, [selectedEmail]); // Depend on selectedEmail
+      };
+  
+      fetchBookings();
+  }, [selectedEmail]);
+  
 
 
   const handleCancel = (bookingId: string) => {
@@ -171,7 +174,7 @@ export default function UpcomingAppointments() {
                                       <div>
                                         <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{new Date(booking.timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} - {new Date(booking.timeSlot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</span></p>
                                         <p className="text-sm font-bold text-main-blue">Patient Name: <span className="font-normal">{booking.patientName}</span></p>
-                                        <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientContact}</span></p>
+                                        <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientEmail}</span></p>
                                       </div>
                                     </div>
             
