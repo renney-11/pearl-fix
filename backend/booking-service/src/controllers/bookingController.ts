@@ -314,6 +314,74 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
   }
 };
 
+export const getBookingsForPatient: RequestHandler = async (req, res) => {
+  const { patientEmail } = req.body;
+
+  try {
+    // Check if patientEmail is provided
+    if (!patientEmail) {
+      res.status(400).json({ message: "Missing patientEmail in request body." });
+      return;
+    }
+
+    // Publish patient email to retrieve patient ID
+    await mqttHandler.publish(
+      "pearl-fix/booking/create/patient/email",
+      JSON.stringify({ email: patientEmail })
+    );
+    console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
+
+    // Retrieve patient data from MQTT subscription
+    const receivedPatient: any = await new Promise((resolve, reject) => {
+      let patientData: any = null;
+      const timeout = setTimeout(() => {
+        if (patientData) {
+          resolve(patientData);
+        } else {
+          reject(new Error("No patient received from MQTT subscription"));
+        }
+      }, 10000);
+
+      mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
+        try {
+          const message = JSON.parse(msg.toString());
+          console.log("Message received on 'pearl-fix/booking/create/patient':", message);
+
+          if (message.patient) {
+            patientData = message.patient;
+            clearTimeout(timeout);
+            resolve(patientData);
+          }
+        } catch (error) {
+          console.error("Error processing patient message:", error);
+        }
+      });
+    });
+
+    const patientIdFromMQTT = receivedPatient._id;
+
+    // Fetch the bookings for the patient and exclude unnecessary fields
+    const bookings = await Booking.find({ patientId: patientIdFromMQTT }).select(
+      "-availabilityId -status -dentistId -patientId -updatedAt -createdAt -__v"
+    );
+
+    if (!bookings || bookings.length === 0) {
+      res.status(404).json({ message: "No bookings found for the specified patient." });
+      return;
+    }
+
+    // Send bookings without clinic details
+    res.status(200).json({
+      message: "Bookings retrieved successfully.",
+      bookings: bookings,
+    });
+  } catch (error) {
+    console.error("Error retrieving bookings for patient:", error);
+    res.status(500).json({ message: "Server error. Could not retrieve bookings." });
+  }
+};
+
+
 
 
 // Patient cancels booking
