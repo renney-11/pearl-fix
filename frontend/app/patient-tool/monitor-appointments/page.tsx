@@ -19,6 +19,8 @@ interface Booking {
 
 export default function UpcomingAppointments() {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+
   const [appointments, setAppointments] = useState([
     {
       date: "Wednesday 16th June, 2025",
@@ -44,17 +46,33 @@ export default function UpcomingAppointments() {
   ]);
 
   useEffect(() => {
-      const fetchBookings = async () => {
-        try {
-          const response = await fetch("/api/getPatientBookings");
+    const storedEmail = sessionStorage.getItem("email");
+    if (storedEmail) setSelectedEmail(storedEmail);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEmail) return;
+
+    const fetchBookings = async () => {
+      try {
+        const response = await fetch("/api/getPatientBookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patientEmail: selectedEmail }), // Pass the correct field
+        });
+        if (response.ok) {
           const data = await response.json();
           setBookings(data.bookings);
-        } catch (error) {
-          console.error("Error fetching bookings:", error);
+        } else {
+          console.error("Failed to fetch bookings");
         }
-      };
-      fetchBookings();
-    }, []);
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
+      }
+    };
+
+    fetchBookings();
+  }, [selectedEmail]); // Depend on selectedEmail
 
   const handleCancel = (time: string, dentist: string, date: string) => {
     const isConfirmed = window.confirm(`Are you sure you want to cancel the appointment with ${dentist} on ${date} at ${time}?`);

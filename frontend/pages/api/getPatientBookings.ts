@@ -15,7 +15,7 @@ interface Booking {
   
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET") {
+  if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
@@ -31,11 +31,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   channel = await connection.createChannel();
 
     // Publish the message to request all clinics
-    const getAllBookingsQueue = "pearl-fix/booking/patient/get-all";
+    const getAllBookingsQueue = "pearl-fix/booking/patient/email";
     await channel.assertQueue(getAllBookingsQueue, { durable: true });
 
-    const payload = {};
-    channel.sendToQueue(getAllBookingsQueue, Buffer.from(JSON.stringify(payload)), {
+    const { patientEmail } = req.body;
+    console.log(patientEmail);
+    channel.sendToQueue(getAllBookingsQueue, Buffer.from(JSON.stringify({patientEmail})), {
       persistent: true,
     });
 
