@@ -38,7 +38,7 @@ export default function Login() {
         if (token) {
           sessionStorage.setItem("authToken", token); // Save token securely
           alert("Login successful!");
-          router.push("/dentist-tool/time-slots");
+          router.push("/dentist-tool/landing-page");
         } else {
           alert("Login successful, but no token received.");
         }
@@ -92,7 +92,7 @@ export default function Login() {
             disabled={loading}
             className={`py-2 px-8 mt-4 ${loading ? "bg-gray-400" : "bg-main-blue"} text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block`}
             >
-            {loading ? "Logging in..." : "Login"}
+            {loading ? "logging in..." : "login"}
             </button>
         </form>
       </div>

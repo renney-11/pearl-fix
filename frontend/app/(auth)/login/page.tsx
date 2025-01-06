@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Login() {
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
@@ -15,6 +16,7 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    setLoading(true);
     e.preventDefault();
 
     if (formData.password.length<=7) {
@@ -42,6 +44,7 @@ export default function Login() {
           sessionStorage.setItem("authToken", token);
 
           alert("Login successful!");
+          sessionStorage.setItem("email", formData.email); 
           router.push("/patient-tool/landing-page"); 
         } else {
           alert("Login successful, but no token received.");
@@ -53,6 +56,9 @@ export default function Login() {
     } catch (err) {
       console.error("Error logging in:", err);
       alert("Failed to send login data.");
+    }
+    finally {
+      setLoading(false); // Reset loading state
     }
   };
 
@@ -92,13 +98,14 @@ export default function Login() {
 
           <button
             type="submit"
-            className="py-2 px-8 mt-4 bg-main-blue text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block"
-          >
-            login
-          </button>
+            disabled={loading}
+            className={`py-2 px-8 mt-4 ${loading ? "bg-gray-400" : "bg-main-blue"} text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block`}
+            >
+            {loading ? "logging in..." : "login"}
+            </button>
         </form>
         <p className="mt-4 text-center text-main-blue">
-          new to tooth beacon?{" "}
+          new to PEARL FIX?{" "}
           <a href="/register" className="font-semibold text-blue-900">
             create an account
           </a>

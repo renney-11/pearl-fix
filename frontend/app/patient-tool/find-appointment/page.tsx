@@ -7,11 +7,14 @@ import { useRouter } from "next/navigation";
 
 export default function Appointment() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
   const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
+  const [dentistId, setDentistId] = useState<string | null>(null);
+  const [clinicId, setClinicId] = useState<string | null>(null);   
   const router = useRouter();
 
 
@@ -29,6 +32,8 @@ export default function Appointment() {
         // Transform timeSlots into a date-keyed structure
         if (data && data.timeSlots) {
           const transformedAvailabilities: Record<string, any> = {};
+          let extractedDentistId: string | null = null;
+
           data.timeSlots.forEach((slot: any) => {
             const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
             if (!transformedAvailabilities[dateKey]) {
@@ -36,13 +41,21 @@ export default function Appointment() {
                 timeSlots: [],
               };
             }
+            if (!extractedDentistId && slot.dentist) {
+              extractedDentistId = slot.dentist;
+            }
             transformedAvailabilities[dateKey].timeSlots.push(slot);
           });
 
           setAvailabilities(transformedAvailabilities); // Store transformed data
+          setDentistId(extractedDentistId || null);
+          setClinicId(data.clinicId);
           console.log("Transformed availabilities:", transformedAvailabilities);
         } else {
           setAvailabilities(null); // No availabilities found
+          setDentistId(null);
+          setClinicId(null);
+          console.error("No availabilities found or invalid response format.");
         }
       } catch (error) {
         console.error("Error fetching availabilities:", error);
@@ -157,7 +170,6 @@ export default function Appointment() {
       }
     }
     
-
     // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
@@ -189,30 +201,46 @@ export default function Appointment() {
     } else {
       setAvailableTimes([]);
     }
+    setSelectedTime(null);
   };  
 
   // Handle saving the booking
   const handleSave = async () => {
-    if (!selectedDate || !availableTimes.length) return;
-
+    console.log("Selected Date:", selectedDate);
+    console.log("Selected Time:", selectedTime);
+    console.log("Dentist ID:", dentistId);
+    console.log("Clinic ID:", clinicId);
+    
+    if (!selectedDate || !selectedTime || !dentistId || !clinicId) return;
+  
     const payload = {
       date: selectedDate.toISOString(),
-      time: availableTimes[0],
+      time: selectedTime,
+      dentistId,
+      clinicId,
     };
-
+  
     try {
       await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+  
+      // Save both date and time in sessionStorage
+      sessionStorage.setItem("selectedDate", selectedDate.toISOString());
+      sessionStorage.setItem("selectedTime", selectedTime);
+      sessionStorage.setItem("dentist", dentistId);
+      sessionStorage.setItem("clinic", clinicId);
 
+  
       router.push(`/patient-tool/book-appointment`);
     } catch (err) {
       console.error("Error saving booking:", err);
       alert("Failed to book appointment.");
     }
   };
+  
 
   return (
     <div>
@@ -226,7 +254,7 @@ export default function Appointment() {
               <li className="inline-flex items-center">
                 <a
                   href="/patient-tool/landing-page"
-                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-white"
+                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-blue"
                 >
                   <svg
                     className="w-3 h-3 me-2.5"
@@ -237,7 +265,7 @@ export default function Appointment() {
                   >
                     <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
                   </svg>
-                  home
+                  Home
                 </a>
               </li>
               <li>
@@ -259,9 +287,9 @@ export default function Appointment() {
                   </svg>
                   <a
                     href="/patient-tool/find-care"
-                    className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-white"
+                    className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-blue"
                   >
-                    find care
+                    Find Care
                   </a>
                 </div>
               </li>
@@ -283,7 +311,7 @@ export default function Appointment() {
                     />
                   </svg>
                   <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">
-                    find appointment
+                    Find Appointment
                   </span>
                 </div>
               </li>
@@ -291,39 +319,59 @@ export default function Appointment() {
           </nav>
 
           <SubBackground>
+          <h1 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+            Find an Appointment at Your Chosen Clinic
+          </h1>
+          <div className="text-lg text-gray-600 mb-6 text-center">
+            <p>
+              Below, you can view the clinic's schedule. You can choose from the
+              available dates and times.
+            </p>
+            <p>
+              By clicking on a highlighted date, you'll be able to select an available time slot to book your appointment.
+            </p>
+          </div>
+
             <div className="flex items-center justify-center hover:max-h-screen ">
               <div className="lg:w-7/12 md:w-9/12 sm:w-10/12 mx-auto p-4">
                 <div className="bg-white-blue shadow-lg rounded-lg overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-3 bg-main-blue">
-                    <button
-                      id="prevMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 0) {
-                          setCurrentMonth(11);
-                          setCurrentYear((prev) => prev - 1);
-                        } else {
-                          setCurrentMonth((prev) => prev - 1);
-                        }
-                      }}
-                    >
-                      previous
-                    </button>
-                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
-                    <button
-                      id="nextMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 11) {
-                          setCurrentMonth(0);
-                          setCurrentYear((prev) => prev + 1);
-                        } else {
-                          setCurrentMonth((prev) => prev + 1);
-                        }
-                      }}
-                    >
-                      next
-                    </button>
+                  <button
+                  id="prevMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentMonth(11);
+                      setCurrentYear((prev) => prev - 1);
+                    } else {
+                      setCurrentMonth((prev) => prev - 1);
+                    }
+                  }}
+                >
+                  previous
+                </button>
+
+                <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
+
+                <button
+                  id="nextMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentMonth(0);
+                      setCurrentYear((prev) => prev + 1);
+                    } else {
+                      setCurrentMonth((prev) => prev + 1);
+                    }
+                  }}
+                  disabled={
+                    (currentYear > new Date().getFullYear() + 1) || 
+                    (currentYear === new Date().getFullYear() + 1 && currentMonth > new Date().getMonth())
+                  }
+                >
+                  next
+                </button>
+
                   </div>
                   <div className="grid grid-cols-7 gap-2 p-4" id="calendar"></div>
                 </div>
@@ -345,6 +393,7 @@ export default function Appointment() {
                         name="time"
                         value={time}
                         className="hidden peer"
+                        onChange={() => setSelectedTime(time)}
                       />
                       <label
                         htmlFor={time}
@@ -358,10 +407,10 @@ export default function Appointment() {
                 <div className="flex items-center justify-center mt-4">
                   <button
                     type="button"
-                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
+                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
                     onClick={handleSave}
                   >
-                    save
+                    next
                   </button>
                 </div>
               </div>

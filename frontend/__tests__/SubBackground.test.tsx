@@ -22,6 +22,6 @@ describe('SubBackground Component', () => {
     );
 
     // Check if the div has the correct class names
-    expect(container.firstChild).toHaveClass('bg-[#E0DCFB] rounded-2xl p-6 m-10');
+    expect(container.firstChild).toHaveClass('bg-[#D1E0F1] rounded-2xl p-6 m-10');
   });
 });

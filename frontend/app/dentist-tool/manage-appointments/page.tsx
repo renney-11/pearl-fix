@@ -65,9 +65,30 @@ export default function UpcomingAppointments() {
         <Background>
           <Header />
 
+          <nav className="flex m-8" aria-label="Breadcrumb">
+            <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
+                <li className="inline-flex items-center">
+                <a href="/dentist-tool/landing-page" className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-blue">
+                    <svg className="w-3 h-3 me-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z"/>
+                    </svg>
+                    Home
+                </a>
+                </li>
+                <li aria-current="page">
+                <div className="flex items-center">
+                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
+                    </svg>
+                    <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">Manage Appointments</span>
+                </div>
+                </li>
+            </ol>
+            </nav>
+
           {/* "Upcoming Appointments" header */}
           <div className="text-center p-8 mb-4">
-            <h1 className="text-3xl font-bold text-main-blue">Upcoming Appointments</h1>
+            <h1 className="text-3xl font-bold text-main-blue">Manage Your Upcoming Appointments</h1>
           </div>
 
           <div className="p-6">
@@ -81,7 +102,7 @@ export default function UpcomingAppointments() {
                 {groupedAppointments[date].map((appointment, idx) => (
                   <div
                     key={idx}
-                    className="p-4 mb-4 border-2 border-white rounded-md bg-transparent-blue"
+                    className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]"
                   >
                     <div className="flex justify-between items-center">
                       {/* FontAwesome Icon */}
@@ -89,7 +110,7 @@ export default function UpcomingAppointments() {
                         <FontAwesomeIcon
                           icon={faHospitalUser}
                           style={{
-                            color: "#ffffff",
+                            color: "#ffff",
                             fontSize: "50px",
                             marginRight: "12px",
                             marginTop: "4px"
@@ -104,7 +125,8 @@ export default function UpcomingAppointments() {
 
                       {/* Cancel Button */}
                       <button
-                        className="bg-red-500 text-white py-1 px-3 rounded-md text-sm hover:bg-red-600"
+                        className="bg-red-600 text-white py-1 px-3 rounded-md text-sm 
+                        hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
                         onClick={() => handleCancel(appointment.time, appointment.patientName)}
                       >
                         Cancel

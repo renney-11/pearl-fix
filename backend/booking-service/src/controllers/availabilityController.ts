@@ -314,16 +314,17 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
             start: timeSlot.start.toISOString(),  // Convert start time to ISO string
             end: timeSlot.end.toISOString(),      // Convert end time to ISO string
             status: timeSlot.status,
+            dentist: availability.dentist, // Add dentist details to each time slot
           }))
         );
-    
-        // Publish the timeSlots to the topic
+
+        // Publish the time slots to the topic
         await mqttHandler.publish(
           "pearl-fix/availability/clinic/all",
           JSON.stringify({
             status: "success",
             clinicId,
-            timeSlots: allTimeSlots,  // Send the formatted timeSlots
+            timeSlots: allTimeSlots,  // Send the formatted time slots with dentist details
           })
         );
     
