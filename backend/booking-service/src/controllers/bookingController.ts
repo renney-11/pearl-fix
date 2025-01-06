@@ -1017,21 +1017,31 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
 
     // Retrieve dentist ID from MQTT subscription
     const dentistIdFromMQTT: string = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("No dentistId received from MQTT subscription")), 10000);
-
+      // Set a longer timeout if the broker is slow
+      const timeout = setTimeout(() => {
+        console.error("Timeout: No dentistId received from MQTT subscription");
+        reject(new Error("No dentistId received from MQTT subscription"));
+      }, 30000); // Increase timeout to 15 seconds if necessary
+    
       mqttHandler.subscribe("pearl-fix/booking/find/dentist-email", (msg) => {
         try {
+          console.log("Message received on 'pearl-fix/booking/find/dentist-email':", msg.toString());
           const message = JSON.parse(msg.toString());
-          console.log("Message received on 'pearl-fix/booking/find/dentist-email':", message);
+    
+          // Validate the message
           if (message.dentistId) {
+            console.log("Resolved dentistId from MQTT:", message.dentistId);
             clearTimeout(timeout);
-            resolve(message.dentistId);
+            resolve(message.dentistId); // Resolve the promise with the dentistId
+          } else {
+            console.error("Received message missing dentistId:", message);
           }
         } catch (error) {
           console.error("Error processing dentist message:", error);
         }
       });
     });
+    
 
     // Fetch the booking using the provided bookingId
     const booking = await Booking.findOne({ _id: new mongoose.Types.ObjectId(bookingId) });
