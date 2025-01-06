@@ -37,6 +37,7 @@ export default function Login() {
     
         if (token) {
           sessionStorage.setItem("authToken", token); // Save token securely
+          sessionStorage.setItem("email", formData.email);
           alert("Login successful!");
           router.push("/dentist-tool/landing-page");
         } else {

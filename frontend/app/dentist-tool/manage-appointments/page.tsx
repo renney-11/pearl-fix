@@ -3,59 +3,120 @@ import Header from '@/src/components/header';
 import Background from '@/src/components/background';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHospitalUser } from '@fortawesome/free-solid-svg-icons';
-import { useState } from 'react';
+import React, { useEffect, useRef, useState } from "react";
+
+interface Booking {
+  dentistId: string; // Reference to the Dentist
+  patientId: string; // Reference to the Patient
+  availabilityId: string; // Reference to Availability
+  bookingId: string;
+  timeSlot: {
+    start: Date;
+    end: Date;
+  };
+  status: "available" | "booked";
+  patientName: string; // Reference to the Clinic (optional)
+  patientEmail: string;
+}
 
 export default function UpcomingAppointments() {
-  const [appointments, setAppointments] = useState([
-    {
-      date: "Wednesday 16th June, 2025",
-      time: "13:00",
-      patientName: "Celina",
-      patientContact: "celina@gmail.com",
-    },
-    {
-      date: "Wednesday 16th June, 2025",
-      time: "15:00",
-      patientName: "Manely",
-      patientContact: "manely@gmail.com",
-    },
-    {
-      date: "Thursday 17th June, 2025",
-      time: "09:00",
-      patientName: "Saba",
-      patientContact: "saba@gmail.com",
-    },
-  ]);
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  
+    useEffect(() => {
+      const storedEmail = sessionStorage.getItem("email");
+      if (storedEmail) setSelectedEmail(storedEmail);
+    }, []);
 
-  const handleCancel = (time: string, patientName: string) => {
-    const isConfirmed = window.confirm(`Are you sure you want to cancel the appointment for ${patientName} at ${time}?`);
+    useEffect(() => {
+      if (!selectedEmail) return;
+  
+      const fetchBookings = async () => {
+          try {
+              const response = await fetch("/api/getDentistBookings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ dentistEmail: selectedEmail }),
+              });
+  
+              if (response.ok) {
+                  const data = await response.json();
+                  if (data.bookings && data.bookings.length > 0) {
+                      const uniqueBookings = Array.from(
+                          new Map(data.bookings.map((booking: any) => [booking._id, booking])).values()
+                      );
+                      const transformedBookings: Booking[] = uniqueBookings.map((booking: any) => ({
+                          dentistId: booking.dentistId || "",
+                          patientId: booking.patientId || "",
+                          availabilityId: booking.availabilityId || "",
+                          bookingId: booking._id || "",
+                          timeSlot: {
+                              start: new Date(booking.start),
+                              end: new Date(booking.end),
+                          },
+                          status: "booked",
+                          patientName: booking.patientName || "Unknown",
+                          patientEmail: booking.patientEmail || "Unknown",
+                      }));
+                      setBookings(transformedBookings);
+                  } else {
+                      setBookings([]);
+                  }
+              } else {
+                  console.error("Failed to fetch bookings");
+              }
+          } catch (error) {
+              console.error("Error fetching bookings:", error);
+          }
+      };
+  
+      fetchBookings();
+  }, [selectedEmail]);
+  
+
+
+  const handleCancel = (bookingId: string) => {
+    const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);
     if (isConfirmed) {
-      setAppointments((prevAppointments) =>
-        prevAppointments.filter((appointment) => !(appointment.time === time && appointment.patientName === patientName))
+      setBookings((prevBookings) =>
+        prevBookings.filter((booking) => booking.bookingId !== bookingId)
       );
-      alert(`Cancelled appointment for ${patientName} at ${time}`);
+      cancelBooking(bookingId);
+      alert(`Appointment cancelled`);
     }
   };
+
+  const cancelBooking = async(bookingId: string) => {
+    try {
+      const response = await fetch("/api/cancelBookingDentist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: bookingId, dentistEmail: selectedEmail}), // Pass the correct field
+      });
+      const cancelResponse = await response.json();
+    } catch (error) {
+      console.error("Error canceling booking:", error);
+    }
+  }
 
   // Helper function to remove ordinal suffixes
   const removeOrdinalSuffix = (dateString: string) => {
     return dateString.replace(/(\d+)(st|nd|rd|th)/, "$1");
   };
 
-  // Sort appointments by date and time
-  const sortedAppointments = [...appointments].sort((a, b) => {
-    const dateTimeA = new Date(`${removeOrdinalSuffix(a.date)} ${a.time}`);
-    const dateTimeB = new Date(`${removeOrdinalSuffix(b.date)} ${b.time}`);
-    return dateTimeA.getTime() - dateTimeB.getTime();
-  });
+  const sortedBookings = [...bookings].sort((a, b) => a.timeSlot.start.getTime() - b.timeSlot.start.getTime());
 
-  // Group appointments by date
-  const groupedAppointments = sortedAppointments.reduce((groups: Record<string, typeof sortedAppointments>, appointment) => {
-    const date = appointment.date;
+  const groupedBookings = sortedBookings.reduce((groups: Record<string, Booking[]>, booking) => {
+    const date = booking.timeSlot.start.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
     if (!groups[date]) {
       groups[date] = [];
     }
-    groups[date].push(appointment);
+    groups[date].push(booking);
     return groups;
   }, {});
 
@@ -92,50 +153,59 @@ export default function UpcomingAppointments() {
           </div>
 
           <div className="p-6">
-            {/* Loop through grouped appointments */}
-            {Object.keys(groupedAppointments).map((date, index) => (
-              <div key={index}>
-                {/* Date Header */}
-                <h3 className="text-xl font-semibold text-main-blue mb-4">{date}</h3>
-
-                {/* Loop through appointments for this date */}
-                {groupedAppointments[date].map((appointment, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]"
-                  >
-                    <div className="flex justify-between items-center">
-                      {/* FontAwesome Icon */}
-                      <div className="flex items-center">
-                        <FontAwesomeIcon
-                          icon={faHospitalUser}
-                          style={{
-                            color: "#ffff",
-                            fontSize: "50px",
-                            marginRight: "12px",
-                            marginTop: "4px"
-                          }} 
-                        />
-                        <div>
-                          <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{appointment.time}</span></p>
-                          <p className="text-sm font-bold text-main-blue">Patient: <span className="font-normal">{appointment.patientName}</span></p>
-                          <p className="text-sm font-bold text-main-blue">Contact: <span className="font-normal">{appointment.patientContact}</span></p>
-                        </div>
-                      </div>
-
-                      {/* Cancel Button */}
-                      <button
-                        className="bg-red-600 text-white py-1 px-3 rounded-md text-sm 
-                        hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
-                        onClick={() => handleCancel(appointment.time, appointment.patientName)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
+            {/* Loop through grouped bookings */}
+            {bookings.length === 0 ? (
+                          <div className="min-h-0 bg-transparent-blue flex flex-col items-center justify-center p-6">
+                            <div className="text-center text-xl font-bold text-main-blue mb-4">
+                              <p> You don't have any upcoming appointments </p>
+                            </div>
+                            <div className="text-center text-l font-bold text-main-blue mb-4">
+                              <p> You will get an email notifaction when a new appointment has been made. </p>
+                            </div>
+                          </div>
+                        ) : (
+                          // Loop through grouped bookings
+                          Object.keys(groupedBookings).map((date, index) => (
+                            <div key={index}>
+                              {/* Date Header */}
+                              <h3 className="text-xl font-semibold text-main-blue mb-4">{date}</h3>
+            
+                              {/* Loop through bookings for this date */}
+                              {groupedBookings[date].map((booking, idx) => (
+                                <div key={idx} className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]">
+                                  <div className="flex justify-between items-center">
+                                    {/* FontAwesome Icon */}
+                                    <div className="flex items-center">
+                                      <FontAwesomeIcon
+                                        icon={faHospitalUser}
+                                        style={{
+                                          color: "#ffffff",
+                                          fontSize: "50px",
+                                          marginRight: "12px",
+                                          marginTop: "4px"
+                                        }}
+                                      />
+                                      <div>
+                                        <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{new Date(booking.timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} - {new Date(booking.timeSlot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</span></p>
+                                        <p className="text-sm font-bold text-main-blue">Patient Name: <span className="font-normal">{booking.patientName}</span></p>
+                                        <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientEmail}</span></p>
+                                      </div>
+                                    </div>
+            
+                                    {/* Cancel Button */}
+                                    <button
+                                      className="bg-red-600 text-white py-1 px-3 rounded-md text-sm
+                                      hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
+                                      onClick={() => handleCancel(booking.bookingId)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))
+                        )}
           </div>
         </Background>
       </main>

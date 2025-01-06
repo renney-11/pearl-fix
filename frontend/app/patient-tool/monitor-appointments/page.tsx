@@ -37,35 +37,50 @@ export default function UpcomingAppointments() {
         const response = await fetch("/api/getPatientBookings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ patientEmail: selectedEmail }), // Pass the correct field
+          body: JSON.stringify({ patientEmail: selectedEmail }),
         });
+
         if (response.ok) {
           const data = await response.json();
-          // Transform API response into the Booking interface structure
-          const transformedBookings: Booking[] = data.bookings.map((booking: any) => ({
-            dentistId: booking.dentistId,
-            patientId: booking.patientId,
-            availabilityId: booking.availabilityId,
-            bookingId: booking._id,
-            timeSlot: {
-              start: new Date(booking.start),
-              end: new Date(booking.end),
-            },
-            status: "booked", // Assuming all fetched bookings are "booked"
-            clinicName: booking.clinicName || "",
-            clinicAddress: booking.clinicAddress || "",
-          }));
-          setBookings(transformedBookings);
+
+          // Validate and transform the response
+          if (Array.isArray(data.bookings) && data.bookings.length > 0) {
+            const uniqueBookings = Array.from(
+              new Map(
+                data.bookings.map((booking: any) => [booking._id, booking])
+              ).values()
+            );
+
+            const transformedBookings: Booking[] = uniqueBookings.map((booking: any) => ({
+              dentistId: booking.dentistId || "",
+              patientId: booking.patientId || "",
+              availabilityId: booking.availabilityId || "",
+              bookingId: booking._id || "",
+              timeSlot: {
+                start: new Date(booking.start),
+                end: new Date(booking.end),
+              },
+              status: "booked", // Assuming all fetched bookings are "booked"
+              clinicName: booking.clinicName || "Unknown Clinic",
+              clinicAddress: booking.clinicAddress || "Unknown Address",
+            }));
+
+            setBookings(transformedBookings);
+          } else {
+            setBookings([]); // No bookings found
+          }
         } else {
           console.error("Failed to fetch bookings");
+          setBookings([]);
         }
       } catch (error) {
         console.error("Error fetching bookings:", error);
+        setBookings([]);
       }
     };
 
     fetchBookings();
-  }, [selectedEmail]); // Depend on selectedEmail
+  }, [selectedEmail]);
 
   const handleCancel = (bookingId: string) => {
     const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);
