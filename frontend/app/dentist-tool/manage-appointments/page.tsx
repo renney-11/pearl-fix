@@ -72,27 +72,6 @@ export default function UpcomingAppointments() {
       }, [selectedEmail]); // Depend on selectedEmail
 
 
-  const [appointments, setAppointments] = useState([
-    {
-      date: "Wednesday 16th June, 2025",
-      time: "13:00",
-      patientName: "Celina",
-      patientContact: "celina@gmail.com",
-    },
-    {
-      date: "Wednesday 16th June, 2025",
-      time: "15:00",
-      patientName: "Manely",
-      patientContact: "manely@gmail.com",
-    },
-    {
-      date: "Thursday 17th June, 2025",
-      time: "09:00",
-      patientName: "Saba",
-      patientContact: "saba@gmail.com",
-    },
-  ]);
-
   const handleCancel = (bookingId: string) => {
     const isConfirmed = window.confirm(`Are you sure you want to cancel this booking?`);
     if (isConfirmed) {
@@ -121,23 +100,6 @@ export default function UpcomingAppointments() {
       groups[date] = [];
     }
     groups[date].push(booking);
-    return groups;
-  }, {});
-
-  // Sort appointments by date and time
-  const sortedAppointments = [...appointments].sort((a, b) => {
-    const dateTimeA = new Date(`${removeOrdinalSuffix(a.date)} ${a.time}`);
-    const dateTimeB = new Date(`${removeOrdinalSuffix(b.date)} ${b.time}`);
-    return dateTimeA.getTime() - dateTimeB.getTime();
-  });
-
-  // Group appointments by date
-  const groupedAppointments = sortedAppointments.reduce((groups: Record<string, typeof sortedAppointments>, appointment) => {
-    const date = appointment.date;
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(appointment);
     return groups;
   }, {});
 
@@ -174,54 +136,59 @@ export default function UpcomingAppointments() {
           </div>
 
           <div className="p-6">
-            {/* Loop through grouped appointments */}
             {/* Loop through grouped bookings */}
-            {Object.keys(groupedBookings).map((date, index) => (
-              <div key={index}>
-                {/* Date Header */}
-                <h3 className="text-xl font-semibold text-main-blue mb-4">{date}</h3>
-
-                {/* Loop through bookings for this date */}
-                {groupedBookings[date].map((booking, idx) => (
-                  <div key={idx} className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]">
-                    <div className="flex justify-between items-center">
-                      {/* FontAwesome Icon */}
-                      <div className="flex items-center">
-                        <FontAwesomeIcon
-                          icon={faHospitalUser}
-                          style={{
-                            color: "#ffffff",
-                            fontSize: "50px",
-                            marginRight: "12px",
-                            marginTop: "4px"
-                          }}
-                        />
-                        <div>
-                          <p className="text-sm font-bold text-main-blue">
-                            Time: <span className="font-normal">
-                              {new Date(booking.timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} - 
-                              {new Date(booking.timeSlot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}
-                            </span>
-                          </p>
-                          <p className="text-sm font-bold text-main-blue">Patient Name: <span className="font-normal">{booking.patientName}</span></p>
-                          <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientContact}</span></p>
-
-                        </div>
-                      </div>
-
-                      {/* Cancel Button */}
-                      <button
-                        className="bg-red-600 text-white py-1 px-3 rounded-md text-sm
-                          hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
-                        onClick={() => handleCancel(booking.bookingId)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
+            {bookings.length === 0 ? (
+                          <div className="min-h-0 bg-transparent-blue flex flex-col items-center justify-center p-6">
+                            <div className="text-center text-xl font-bold text-main-blue mb-4">
+                              <p> You don't have any upcoming appointments </p>
+                            </div>
+                            <div className="text-center text-l font-bold text-main-blue mb-4">
+                              <p> You will get an email notifaction when a new appointment has been made. </p>
+                            </div>
+                          </div>
+                        ) : (
+                          // Loop through grouped bookings
+                          Object.keys(groupedBookings).map((date, index) => (
+                            <div key={index}>
+                              {/* Date Header */}
+                              <h3 className="text-xl font-semibold text-main-blue mb-4">{date}</h3>
+            
+                              {/* Loop through bookings for this date */}
+                              {groupedBookings[date].map((booking, idx) => (
+                                <div key={idx} className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]">
+                                  <div className="flex justify-between items-center">
+                                    {/* FontAwesome Icon */}
+                                    <div className="flex items-center">
+                                      <FontAwesomeIcon
+                                        icon={faHospitalUser}
+                                        style={{
+                                          color: "#ffffff",
+                                          fontSize: "50px",
+                                          marginRight: "12px",
+                                          marginTop: "4px"
+                                        }}
+                                      />
+                                      <div>
+                                        <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{new Date(booking.timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} - {new Date(booking.timeSlot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</span></p>
+                                        <p className="text-sm font-bold text-main-blue">Patient Name: <span className="font-normal">{booking.patientName}</span></p>
+                                        <p className="text-sm font-bold text-main-blue">Patient Contact: <span className="font-normal">{booking.patientContact}</span></p>
+                                      </div>
+                                    </div>
+            
+                                    {/* Cancel Button */}
+                                    <button
+                                      className="bg-red-600 text-white py-1 px-3 rounded-md text-sm
+                                      hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
+                                      onClick={() => handleCancel(booking.bookingId)}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))
+                        )}
           </div>
         </Background>
       </main>
