@@ -815,6 +815,15 @@ export const getBookingsForDentist: RequestHandler = async (req, res) => {
     // Check if dentistEmail is provided
     if (!dentistEmail) {
       res.status(400).json({ message: "Missing dentistEmail in request body." });
+
+      // Publish failure status to the topic 'pearl-fix/booking/dentist/all-data'
+      await mqttHandler.publish(
+        "pearl-fix/booking/dentist/all-data",
+        JSON.stringify({
+          success: false,
+          message: "Missing dentistEmail in request body.",
+        })
+      );
       return;
     }
 
@@ -850,6 +859,15 @@ export const getBookingsForDentist: RequestHandler = async (req, res) => {
 
     if (!bookings || bookings.length === 0) {
       res.status(404).json({ message: "No bookings found for the specified dentist." });
+
+      // Publish failure status to the topic 'pearl-fix/booking/dentist/all-data'
+      await mqttHandler.publish(
+        "pearl-fix/booking/dentist/all-data",
+        JSON.stringify({
+          success: false,
+          message: "No bookings found for the specified dentist.",
+        })
+      );
       return;
     }
 
@@ -896,16 +914,35 @@ export const getBookingsForDentist: RequestHandler = async (req, res) => {
       })
     );
 
+    // Respond with the bookings with patient details
     res.status(200).json({
       message: "Bookings retrieved successfully.",
       bookings: bookingsWithPatientDetails,
     });
+
+    // Publish success status and include bookings data to the topic 'pearl-fix/booking/dentist/all-data'
+    await mqttHandler.publish(
+      "pearl-fix/booking/dentist/all-data",
+      JSON.stringify({
+        success: true,
+        message: "Bookings retrieved successfully.",
+        bookings: bookingsWithPatientDetails,
+      })
+    );
   } catch (error) {
     console.error("Error retrieving bookings for dentist:", error);
     res.status(500).json({ message: "Server error. Could not retrieve bookings." });
+
+    // Publish failure status to the topic 'pearl-fix/booking/dentist/all-data'
+    await mqttHandler.publish(
+      "pearl-fix/booking/dentist/all-data",
+      JSON.stringify({
+        success: false,
+        message: "Server error. Could not retrieve bookings.",
+      })
+    );
   }
 };
-
 
 
 // Dentist cancels a booking
