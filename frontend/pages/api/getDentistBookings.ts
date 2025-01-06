@@ -63,8 +63,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 console.log(message);
                 resolve(message);
               } else {
-                console.log({ success: false, message: "No bookings made for the specified patient." })
-                resolve({ success: false, message: "No bookings made for the specified patient." });
+                console.log({ success: false, message: "No bookings for dentist." })
+                resolve({ success: false, message: "No bookings for dentist." });
               }
             }
           },
