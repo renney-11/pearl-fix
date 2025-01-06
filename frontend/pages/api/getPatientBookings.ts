@@ -76,9 +76,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (bookingsData.success) {
       const enrichedBookings = bookingsData.bookings.map((booking) => ({
         ...booking,
-        startTime: booking.timeSlot?.start,
-        endTime: booking.timeSlot?.end,
+        start: booking.timeSlot?.start,
+        end: booking.timeSlot?.end,
       }));
+      console.log(enrichedBookings);
       return res.status(200).json({ success: true, bookings: enrichedBookings });
     } else {
       return res.status(200).json({ success: false, message: bookingsData.message });

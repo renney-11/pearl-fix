@@ -14,36 +14,14 @@ interface Booking {
     end: Date;
   };
   status: "available" | "booked";
-  clinicId: string; // Reference to the Clinic (optional)
+  clinicName: string; // Reference to the Clinic (optional)
+  clinicAddress: string;
 }
 
 export default function UpcomingAppointments() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
 
-  const [appointments, setAppointments] = useState([
-    {
-      date: "Wednesday 16th June, 2025",
-      time: "13:00",
-      dentist: "Dr. Sarah Thompson",
-      clinic: "Bright Smiles Dental",
-      address: "Vasaplatsen 1, 411 26 Göteborg, Sweden",
-    },
-    {
-      date: "Wednesday 16th June, 2025",
-      time: "15:00",
-      dentist: "Dr. James Wilson",
-      clinic: "Sunny Days Dentistry",
-      address: "Drottninggatan 83, 111 60 Stockholm, Sweden",
-    },
-    {
-      date: "Thursday 17th June, 2025",
-      time: "09:00",
-      dentist: "Dr. Laura Green",
-      clinic: "Pearl White Clinic",
-      address: "Hisingen, 417 05 Göteborg, Sweden",
-    },
-  ]);
 
   useEffect(() => {
     const storedEmail = sessionStorage.getItem("email");
@@ -62,7 +40,21 @@ export default function UpcomingAppointments() {
         });
         if (response.ok) {
           const data = await response.json();
-          setBookings(data.bookings);
+          // Transform API response into the Booking interface structure
+          const transformedBookings: Booking[] = data.bookings.map((booking: any) => ({
+            dentistId: booking.dentistId,
+            patientId: booking.patientId,
+            availabilityId: booking.availabilityId,
+            bookingId: booking._id,
+            timeSlot: {
+              start: new Date(booking.start),
+              end: new Date(booking.end),
+            },
+            status: "booked", // Assuming all fetched bookings are "booked"
+            clinicName: booking.clinicName || "",
+            clinicAddress: booking.clinicAddress || "",
+          }));
+          setBookings(transformedBookings);
         } else {
           console.error("Failed to fetch bookings");
         }
@@ -74,39 +66,37 @@ export default function UpcomingAppointments() {
     fetchBookings();
   }, [selectedEmail]); // Depend on selectedEmail
 
-  const handleCancel = (time: string, dentist: string, date: string) => {
-    const isConfirmed = window.confirm(`Are you sure you want to cancel the appointment with ${dentist} on ${date} at ${time}?`);
+  const handleCancel = (bookingId: string) => {
+    const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);
     if (isConfirmed) {
-      setAppointments((prevAppointments) =>
-        prevAppointments.filter(
-          (appointment) => !(appointment.time === time && appointment.dentist === dentist && appointment.date === date)
-        )
+      setBookings((prevBookings) =>
+        prevBookings.filter((booking) => booking.availabilityId !== bookingId)
       );
-      alert(`Cancelled appointment with ${dentist} on ${date} at ${time}`);
+      alert(`Appointment cancelled`);
     }
   };
+
+  const sortedBookings = [...bookings].sort((a, b) => a.timeSlot.start.getTime() - b.timeSlot.start.getTime());
+
+  const groupedBookings = sortedBookings.reduce((groups: Record<string, Booking[]>, booking) => {
+    const date = booking.timeSlot.start.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(booking);
+    return groups;
+  }, {});
 
   // Helper function to remove ordinal suffixes
   const removeOrdinalSuffix = (dateString: string) => {
     return dateString.replace(/(\d+)(st|nd|rd|th)/, "$1");
   };
 
-  // Sort appointments by date and time
-  const sortedAppointments = [...appointments].sort((a, b) => {
-    const dateTimeA = new Date(`${removeOrdinalSuffix(a.date)} ${a.time}`);
-    const dateTimeB = new Date(`${removeOrdinalSuffix(b.date)} ${b.time}`);
-    return dateTimeA.getTime() - dateTimeB.getTime();
-  });
-
-  // Group appointments by date
-  const groupedAppointments = sortedAppointments.reduce((groups: Record<string, typeof sortedAppointments>, appointment) => {
-    const date = appointment.date;
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(appointment);
-    return groups;
-  }, {});
 
   return (
     <div>
@@ -116,33 +106,33 @@ export default function UpcomingAppointments() {
 
           <nav className="flex m-8" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
-                <li className="inline-flex items-center">
+              <li className="inline-flex items-center">
                 <a href="/patient-tool/landing-page" className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-blue">
-                    <svg className="w-3 h-3 me-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3 me-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
                     <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z"/>
-                    </svg>
-                    Home
+                  </svg>
+                  Home
                 </a>
-                </li>
-                <li aria-current="page">
+              </li>
+              <li aria-current="page">
                 <div className="flex items-center">
-                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
+                  <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
                     <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
-                    </svg>
-                    <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">Monitor Appointments</span>
+                  </svg>
+                  <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">Monitor Appointments</span>
                 </div>
-                </li>
+              </li>
             </ol>
-            </nav>
+          </nav>
 
-          {/* outside, centered */}
+          {/* Main Section */}
           <div className="text-center p-8 mb-50">
             <h1 className="text-3xl font-bold text-main-blue">Your Upcoming Appointments</h1>
           </div>
 
           <div className="p-6">
             {/* Check if there are no upcoming appointments */}
-            {appointments.length === 0 ? (
+            {bookings.length === 0 ? (
               <div className="min-h-0 bg-transparent-blue flex flex-col items-center justify-center p-6">
                 <div className="text-center text-3xl font-bold text-main-blue mb-4">
                   <p>You don't have any upcoming appointments <FontAwesomeIcon icon={faFaceSadTear} /></p>
@@ -161,14 +151,14 @@ export default function UpcomingAppointments() {
                 </div>
               </div>
             ) : (
-              // Loop through grouped appointments
-              Object.keys(groupedAppointments).map((date, index) => (
+              // Loop through grouped bookings
+              Object.keys(groupedBookings).map((date, index) => (
                 <div key={index}>
                   {/* Date Header */}
                   <h3 className="text-xl font-semibold text-main-blue mb-4">{date}</h3>
 
-                  {/* Loop through appointments for this date */}
-                  {groupedAppointments[date].map((appointment, idx) => (
+                  {/* Loop through bookings for this date */}
+                  {groupedBookings[date].map((booking, idx) => (
                     <div key={idx} className="p-4 mb-4 border-2 border-main-blue rounded-md bg-[#D1E0F1]">
                       <div className="flex justify-between items-center">
                         {/* FontAwesome Icon */}
@@ -183,10 +173,9 @@ export default function UpcomingAppointments() {
                             }}
                           />
                           <div>
-                            <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{appointment.time}</span></p>
-                            <p className="text-sm font-bold text-main-blue">Dentist: <span className="font-normal">{appointment.dentist}</span></p>
-                            <p className="text-sm font-bold text-main-blue">Clinic: <span className="font-normal">{appointment.clinic}</span></p>
-                            <p className="text-sm font-bold text-main-blue">Address: <span className="font-normal">{appointment.address}</span></p>
+                            <p className="text-sm font-bold text-main-blue">Time: <span className="font-normal">{new Date(booking.timeSlot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })} - {new Date(booking.timeSlot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}</span></p>
+                            <p className="text-sm font-bold text-main-blue">Clinic Name: <span className="font-normal">{booking.clinicName}</span></p>
+                            <p className="text-sm font-bold text-main-blue">Clinic Address: <span className="font-normal">{booking.clinicAddress}</span></p>
                           </div>
                         </div>
 
@@ -194,7 +183,7 @@ export default function UpcomingAppointments() {
                         <button
                           className="bg-red-600 text-white py-1 px-3 rounded-md text-sm
                           hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
-                          onClick={() => handleCancel(appointment.time, appointment.dentist, appointment.date)}
+                          onClick={() => handleCancel(booking.availabilityId)}
                         >
                           Cancel
                         </button>
