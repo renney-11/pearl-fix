@@ -314,6 +314,43 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
   }
 };
 
+const listenForPatientsBookings = async (): Promise<void> => {
+  try {
+    await mqttHandler.connect();
+
+    mqttHandler.subscribe("pearl-fix/booking/patient/email", async (msg) => {
+      try {
+        const patientEmail = JSON.parse(msg.toString());
+        console.log("Received patient email:", patientEmail);
+
+        // Call createBooking with a mock req and res
+        const mockReq = {
+          body: patientEmail,
+        } as unknown as Parameters<RequestHandler>[0];
+
+        const mockRes = {
+          status: (statusCode: number) => ({
+            json: (response: any) => {
+              console.log(`Response (${statusCode}):`, response);
+              return response;
+            },
+          }),
+        } as unknown as Parameters<RequestHandler>[1];
+
+        const mockNext = () => {}; // This is an empty function, acting as the 'next' middleware
+
+        await getBookingsForPatient(mockReq, mockRes, mockNext);
+      } catch (error) {
+        console.error("Error processing booking data:", error);
+      }
+    });
+
+    console.log("Listening for messages on 'pearl-fix/booking/patient/email'...");
+  } catch (error) {
+    console.error("Error setting up MQTT listener:", error);
+  }
+};
+
 export const getBookingsForPatient: RequestHandler = async (req, res) => {
   const { patientEmail } = req.body;
 
@@ -321,6 +358,12 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
     // Check if patientEmail is provided
     if (!patientEmail) {
       res.status(400).json({ message: "Missing patientEmail in request body." });
+
+      // Publish failure status to the topic
+      await mqttHandler.publish(
+        "pearl-fix/booking/patient/all-data",
+        JSON.stringify({ success: false, message: "Missing patientEmail in request body." })
+      );
       return;
     }
 
@@ -367,6 +410,12 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
 
     if (!bookings || bookings.length === 0) {
       res.status(404).json({ message: "No bookings found for the specified patient." });
+
+      // Publish failure status to the topic
+      await mqttHandler.publish(
+        "pearl-fix/booking/patient/all-data",
+        JSON.stringify({ success: false, message: "No bookings found for the specified patient." })
+      );
       return;
     }
 
@@ -415,9 +464,9 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
             JSON.stringify({ status: "failure", message: "Clinic not found from MQTT data." })
           );
 
-          // Publish failure message to the topic
+          // Publish failure status to the topic
           await mqttHandler.publish(
-            "pearl-fix/booking/create/authenticate",
+            "pearl-fix/booking/patient/all-data",
             JSON.stringify({ success: false, message: "Clinic not found from MQTT data." })
           );
           throw new Error("Clinic not found from MQTT data.");
@@ -435,9 +484,25 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
       message: "Bookings retrieved successfully.",
       bookings: bookingsWithClinicDetails,
     });
+
+    // Publish success status and bookings to the topic
+    await mqttHandler.publish(
+      "pearl-fix/booking/patient/all-data",
+      JSON.stringify({
+        success: true,
+        message: "Bookings retrieved successfully.",
+        bookings: bookingsWithClinicDetails,
+      })
+    );
   } catch (error) {
     console.error("Error retrieving bookings for patient:", error);
     res.status(500).json({ message: "Server error. Could not retrieve bookings." });
+
+    // Publish failure status to the topic
+    await mqttHandler.publish(
+      "pearl-fix/booking/patient/all-data",
+      JSON.stringify({ success: false, message: "Server error. Could not retrieve bookings." })
+    );
   }
 };
 
@@ -719,3 +784,5 @@ await sendCancellationEmailByDentist(patientEmail, timeSlot, dentistEmail);
 
 // Start listening for bookings
 listenForBookingData();
+
+listenForPatientsBookings();

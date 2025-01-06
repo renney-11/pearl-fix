@@ -43,46 +43,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const responseQueue = "pearl-fix/booking/patient/all-data";
     await channel.assertQueue(responseQueue, { durable: true });
 
-    // Log that we are subscribing to the queue
-    console.log("Subscribed to queue:", responseQueue);
+    console.log(`Subscribed to queue: "${responseQueue}"`);
 
-    // Wait for the response message and get the latest booking data
-    const bookingsData = await new Promise<Booking[]>((resolve, reject) => {
+    // Wait for the response message and get the booking data
+    const bookingsData = await new Promise<{ success: boolean; message: string; bookings: Booking[] }>((resolve, reject) => {
       const timeout = setTimeout(() => {
         if (channel) channel.close();
         if (connection) connection.close();
-        reject("Timeout waiting for booking data.");
+        reject(new Error("Timeout waiting for booking data."));
       }, 10000); // 10 seconds timeout
 
-      channel?.consume(
+      channel.consume(
         responseQueue,
         (msg: ConsumeMessage | null) => {
-          if (msg !== null) {
+          if (msg) {
             const message = JSON.parse(msg.content.toString());
-            
-            // Log the clinics received
-            console.log("Clinics received from 'pearl-fix/booking/patient/all-data':", message.bookings);
+            console.log("Message received from queue:", message);
 
-            // Discard any old messages (optional: check for timestamp or other deduplication logic)
-            if (message.bookings.length > 0) {
+            if (message.success) {
               clearTimeout(timeout);
-              resolve(message.bookings); // Resolve with the new booking data
-              channel?.ack(msg); // Acknowledge the message (mark it as processed)
+              channel.ack(msg);
+              resolve(message);
+            } else {
+              clearTimeout(timeout);
+              channel.ack(msg);
+              reject(new Error(message.message || "Failed to retrieve bookings."));
             }
           }
         },
-        { noAck: false } // Acknowledge messages manually (helps prevent duplicates)
+        { noAck: false } // Acknowledge messages manually
       );
     });
 
-    // If bookingsData is empty, handle it appropriately
-    if (!bookingsData || bookingsData.length === 0) {
-      return res.status(404).json({ error: "No bookings found" });
-    }
-
-    // Respond with the processed clinics data
-    res.status(200).json({ bookings: bookingsData });
-
+    // Respond with the bookings data
+    res.status(200).json({ bookings: bookingsData.bookings });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -96,4 +90,3 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 }
-
