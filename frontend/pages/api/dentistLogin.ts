@@ -61,9 +61,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log("Listening for token on authenticate queue...");
     await setupQueue(authenticateQueue);
 
-    let tokenReceived = false;
+    let responseSent = false;
     const timeout = setTimeout(async () => {
-      if (!tokenReceived) {
+      if (!responseSent) {
         console.error("Timeout waiting for token.");
         res.status(500).json({ error: "Failed to receive token." });
         await cleanupResources(authenticateQueue);
@@ -73,17 +73,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await consumeQueue(authenticateQueue, async (msg) => {
       if (msg) {
         const message = JSON.parse(msg.content.toString());
-        if (message.token) {
-          console.log("Token received:", message.token);
-          tokenReceived = true;
-          clearTimeout(timeout); // Clear timeout
-          channel.ack(msg); // Acknowledge the message
-          
-          // Purge remaining messages
-          await purgeQueue(authenticateQueue);
+        console.log("Message received:", message);
 
-          res.status(200).json({ token: message.token });
-          await cleanupResources(authenticateQueue);
+        if (!responseSent) {
+          if (message.token) {
+            // Token received, login successful
+            responseSent = true;
+            clearTimeout(timeout);
+            channel.ack(msg);
+            await purgeQueue(authenticateQueue);
+            res.status(200).json({ token: message.token });
+            await cleanupResources(authenticateQueue);
+          } else if (message.message || message.error) {
+            // Invalid credentials or other error
+            responseSent = true;
+            clearTimeout(timeout);
+            channel.ack(msg);
+            res.status(401).json({ error: message.message || message.error });
+            await cleanupResources(authenticateQueue);
+          } else {
+            console.error("Unexpected message format:", message);
+            responseSent = true;
+            clearTimeout(timeout);
+            channel.ack(msg);
+            res.status(500).json({ error: "Unexpected message format." });
+            await cleanupResources(authenticateQueue);
+          }
         }
       }
     });

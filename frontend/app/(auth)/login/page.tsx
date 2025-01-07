@@ -16,13 +16,14 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setLoading(true);
-    e.preventDefault();
+    e.preventDefault(); // Prevent form submission before validation
 
-    if (formData.password.length<=7) {
-      alert("your password cannot be less than 8 characters");
+    if (formData.password.length < 8) {
+      alert("Your password cannot be less than 8 characters.");
       return;
     }
+
+    setLoading(true); // Set loading only after validation passes
 
     try {
       const response = await fetch("/api/login", {
@@ -42,22 +43,20 @@ export default function Login() {
 
         if (token) {
           sessionStorage.setItem("authToken", token);
-
           alert("Login successful!");
-          sessionStorage.setItem("email", formData.email); 
-          router.push("/patient-tool/landing-page"); 
+          sessionStorage.setItem("email", formData.email);
+          router.push("/patient-tool/landing-page");
         } else {
           alert("Login successful, but no token received.");
         }
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message}`);
+        alert(error.error || "Invalid credentials.");
       }
     } catch (err) {
       console.error("Error logging in:", err);
-      alert("Failed to send login data.");
-    }
-    finally {
+      alert("Failed to send login data. Please try again later.");
+    } finally {
       setLoading(false); // Reset loading state
     }
   };
@@ -99,10 +98,12 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className={`py-2 px-8 mt-4 ${loading ? "bg-gray-400" : "bg-main-blue"} text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block`}
-            >
+            className={`py-2 px-8 mt-4 ${
+              loading ? "bg-gray-400" : "bg-main-blue"
+            } text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block`}
+          >
             {loading ? "logging in..." : "login"}
-            </button>
+          </button>
         </form>
         <p className="mt-4 text-center text-main-blue">
           new to PEARL FIX?{" "}
