@@ -57,7 +57,6 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         } as any;
 
         if (!validateFields(req, res, ["name", "email", "password"])) return;
-        if (!validateStringLength(req, res, "name", 32, 8)) return;
         if (!validateStringLength(req, res, "email", 32, 8)) return;
         if (!validateStringLength(req, res, "password", 32, 8)) return;
         if (!validateEmailFormat(req, res, "email")) return;
@@ -864,7 +863,6 @@ export const registerDentist: RequestHandler = async (req, res): Promise<void> =
 
   try {
     if (!validateFields(req, res, ["name", "email", "password"])) return;
-    if (!validateStringLength(req, res, "name", 32, 8)) return;
     if (!validateStringLength(req, res, "email", 32, 8)) return;
     if (!validateStringLength(req, res, "password", 32, 8)) return;
     if (!validateEmailFormat(req, res, "email")) return;
