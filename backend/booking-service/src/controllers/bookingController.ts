@@ -164,6 +164,162 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 })();
 
 
+(async () => {
+  try {
+    await mqttHandler.connect();
+    console.log("Connected to MQTT broker.");
+
+    await mqttHandler.subscribe("pearl-fix/booking/dentist/email", async (msg) => {
+      console.log("Received message on 'pearl-fix/booking/dentist/email':", msg.toString());
+
+      try {
+        const receivedDentistEmail = JSON.parse(msg.toString());
+        const dentistEmail = receivedDentistEmail.dentistEmail;
+        console.log("Dentist email:", dentistEmail);
+
+        if (!dentistEmail) {
+          const errorMessage = "Missing dentistEmail in request body.";
+          console.error(errorMessage);
+
+          await mqttHandler.publish(
+            "pearl-fix/booking/dentist/all-data",
+            JSON.stringify({ success: false, message: errorMessage })
+          );
+          return;
+        }
+
+        await mqttHandler.publish(
+          "pearl-fix/booking/find/dentist-id",
+          JSON.stringify({ email: dentistEmail })
+        );
+        console.log(`Published dentist email to "pearl-fix/booking/find/dentist-id": ${dentistEmail}`);
+
+        await mqttHandler.subscribe("pearl-fix/booking/find/dentist-email", async (msg) => {
+          console.log("Received message on 'pearl-fix/booking/find/dentist-email':", msg.toString());
+
+          try {
+            const receivedMessage = JSON.parse(msg.toString());
+            console.log("Message received on 'pearl-fix/booking/find/dentist-email:", receivedMessage);
+
+            if (!receivedMessage) {
+              const errorMessage = "No message received from MQTT subscription.";
+              console.error(errorMessage);
+
+              await mqttHandler.publish(
+                "pearl-fix/booking/dentist/all-data",
+                JSON.stringify({ success: false, message: errorMessage })
+              );
+              return;
+            }
+
+            const dentistIdFromMQTT = receivedMessage.dentistId
+            console.log("Dentist ID from MQTT:", dentistIdFromMQTT);
+
+            // Fetch bookings for the patient
+            const bookings = await Booking.find({ dentistId: dentistIdFromMQTT }).select(
+              "-availabilityId -status -dentistId -updatedAt -createdAt -__v"
+            );
+            console.log("Bookings found:", bookings);
+
+            if (!bookings || bookings.length === 0) {
+              const errorMessage = "No bookings found for the specified dentist.";
+              console.error(errorMessage);
+
+              await mqttHandler.publish(
+                "pearl-fix/booking/dentist/all-data",
+                JSON.stringify({ success: false, message: errorMessage })
+              );
+              return;
+            }
+
+            const bookingsWithDetails: any[] = []; // Collect all processed bookings
+
+            // Process each booking to get clinic details
+            for (const booking of bookings) {
+              const patientId = booking.patientId;
+
+              // Publish patientId to retrieve patient details
+              await mqttHandler.publish(
+                "pearl-fix/booking/find/patient-id",
+                JSON.stringify({ patientId })
+              );
+              console.log(`Published dentistId to "pearl-fix/booking/find/clinic": ${patientId}`);
+
+              await mqttHandler.subscribe("pearl-fix/booking/patient-email", async (msg) => {
+                console.log("Received message on 'pearl-fix/booking/patient-email':", msg.toString());
+
+                try {
+                  const message = JSON.parse(msg.toString());
+                  console.log("Message received on 'pearl-fix/booking/patient':", message);
+
+                  const receivedPatient = message.patient;
+                  console.log(receivedPatient);
+                  if (!receivedPatient) {
+                    const errorMessage = "Patient not found from MQTT data.";
+                    console.error(errorMessage);
+
+                    await mqttHandler.publish(
+                      "pearl-fix/booking/dentist/all-data",
+                      JSON.stringify({ success: false, message: errorMessage })
+                    );
+                    return;
+                  }
+
+                  const bookingWitPatientDetails = {
+                    patientName: receivedPatient.name,
+                    patientEmail: receivedPatient.email,
+                    ...booking.toObject(),
+                  };
+                  console.log("Booking with patient details:", bookingWitPatientDetails);
+
+                  // Add processed booking to the collection
+                  bookingsWithDetails.push(bookingWitPatientDetails);
+
+                  // If all bookings are processed, send them in a single message
+                    console.log("All bookings processed successfully:", bookingsWithDetails);
+
+                    await mqttHandler.publish(
+                      "pearl-fix/booking/dentist/all-data",
+                      JSON.stringify({
+                        success: true,
+                        message: "Bookings retrieved successfully.",
+                        bookings: bookingsWithDetails,
+                      })
+                    );
+                } catch (error) {
+                  console.error("Error processing patient message:", error);
+
+                  await mqttHandler.publish(
+                    "pearl-fix/booking/dentist/all-data",
+                    JSON.stringify({ success: false, message: "Server error. Could not retrieve clinic details." })
+                  );
+                }
+              });
+            }
+          } catch (error) {
+            console.error("Error processing patient message:", error);
+
+            await mqttHandler.publish(
+              "pearl-fix/booking/dentist/all-data",
+              JSON.stringify({ success: false, message: "Server error. Could not process patient data." })
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Error processing email message:", error);
+
+        await mqttHandler.publish(
+          "pearl-fix/booking/dentist/all-data",
+          JSON.stringify({ success: false, message: "Server error. Could not process email data." })
+        );
+      }
+    });
+  } catch (error) {
+    console.error("Error connecting to MQTT broker:", error);
+  }
+})();
+
+
 
 // Helper method to continuously listen for booking data
 const listenForBookingData = async (): Promise<void> => {
@@ -476,44 +632,8 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
   }
 };
 
-/*const listenForPatientsBookings = async (): Promise<void> => {
-  try {
-    await mqttHandler.connect();
 
-    mqttHandler.subscribe("pearl-fix/booking/patient/email", async (msg) => {
-      try {
-        const patientEmail = JSON.parse(msg.toString());
-        console.log("Received patient email:", patientEmail);
-
-        // Call createBooking with a mock req and res
-        const mockReq = {
-          body: patientEmail,
-        } as unknown as Parameters<RequestHandler>[0];
-
-        const mockRes = {
-          status: (statusCode: number) => ({
-            json: (response: any) => {
-              console.log(`Response (${statusCode}):`, response);
-              return response;
-            },
-          }),
-        } as unknown as Parameters<RequestHandler>[1];
-
-        const mockNext = () => {}; // This is an empty function, acting as the 'next' middleware
-
-        await getBookingsForPatient(mockReq, mockRes, mockNext);
-      } catch (error) {
-        console.error("Error processing booking data:", error);
-      }
-    });
-
-    console.log("Listening for messages on 'pearl-fix/booking/patient/email'...");
-  } catch (error) {
-    console.error("Error setting up MQTT listener:", error);
-  }
-};*/
-
-// Revised `getBookingsForPatient` method
+// Postman `getBookingsForPatient` method
 export const getBookingsForPatient: RequestHandler = async (req, res) => {
   const { patientEmail } = req.body;
 
@@ -918,6 +1038,7 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
   }
 };
 
+/*
 const listenForDentistBookings = async (): Promise<void> => {
   try {
     await mqttHandler.connect();
@@ -953,7 +1074,7 @@ const listenForDentistBookings = async (): Promise<void> => {
   } catch (error) {
     console.error("Error setting up MQTT listener:", error);
   }
-};
+}; */
 
 
 export const getBookingsForDentist: RequestHandler = async (req, res) => {
@@ -1338,6 +1459,6 @@ listenForBookingData();
 
 listenForPatientsCancelling();
 
-listenForDentistBookings();
+//listenForDentistBookings();
 
 listenForDentistsCancelling();

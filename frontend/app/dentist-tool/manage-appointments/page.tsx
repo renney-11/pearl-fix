@@ -55,8 +55,8 @@ export default function UpcomingAppointments() {
                               end: new Date(booking.end),
                           },
                           status: "booked",
-                          patientName: booking.patientName || "Unknown",
-                          patientEmail: booking.patientEmail || "Unknown",
+                          patientName: booking.patientName,
+                          patientEmail: booking.patientEmail,
                       }));
                       setBookings(transformedBookings);
                   } else {
