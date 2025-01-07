@@ -1,21 +1,97 @@
 "use client";
-import Header from '@/src/components/header';
-import SubBackground from '@/src/components/subbackground';
-import Background from '@/src/components/background';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import Header from "@/src/components/header";
+import SubBackground from "@/src/components/subbackground";
+import Background from "@/src/components/background";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Appointment() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
+  const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
+  const [dentistId, setDentistId] = useState<string | null>(null);
+  const [clinicId, setClinicId] = useState<string | null>(null);   
   const router = useRouter();
 
+
+  // Fetch availabilities on component mount
+  useEffect(() => {
+    const fetchAvailabilities = async () => {
+      try {
+        const response = await fetch("/api/booking", {
+          method: "GET",
+          headers: { "Cache-Control": "no-store" }, // Ensure fresh data
+        });
+        const data = await response.json();
+        console.log("Received availabilities:", data);
+
+        // Transform timeSlots into a date-keyed structure
+        if (data && data.timeSlots) {
+          const transformedAvailabilities: Record<string, any> = {};
+          let extractedDentistId: string | null = null;
+
+          data.timeSlots.forEach((slot: any) => {
+            const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
+            if (!transformedAvailabilities[dateKey]) {
+              transformedAvailabilities[dateKey] = {
+                timeSlots: [],
+              };
+            }
+            if (!extractedDentistId && slot.dentist) {
+              extractedDentistId = slot.dentist;
+            }
+            transformedAvailabilities[dateKey].timeSlots.push(slot);
+          });
+
+          setAvailabilities(transformedAvailabilities); // Store transformed data
+          setDentistId(extractedDentistId || null);
+          setClinicId(data.clinicId);
+          console.log("Transformed availabilities:", transformedAvailabilities);
+        } else {
+          setAvailabilities(null); // No availabilities found
+          setDentistId(null);
+          setClinicId(null);
+          console.error("No availabilities found or invalid response format.");
+        }
+      } catch (error) {
+        console.error("Error fetching availabilities:", error);
+      }
+    };
+
+    fetchAvailabilities();
+  }, []); // Only on mount
+
+
+  // Re-render calendar when year, month, or availabilities change
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
-  }, [currentYear, currentMonth, selectedDate]);
+  }, [currentYear, currentMonth, availabilities]); // Trigger on availabilities change
 
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const response = await fetch(
+          `https://calendarific.com/api/v2/holidays?api_key=HHCAcL6QW2USf32b9w3CqcvyQBMEZL7M&country=SE&year=${currentYear}`
+        );
+        const data = await response.json();
+        if (data && data.response && data.response.holidays) {
+          const holidayDates = data.response.holidays.map((holiday: any) => holiday.date.iso);
+          setHolidays(holidayDates);
+        }
+      } catch (error) {
+        console.error("Error fetching holidays:", error);
+      }
+    };
+
+    fetchHolidays();
+  }, [currentYear]);
+
+
+  // Generate the calendar for a given year and month
   const generateCalendar = (year: number, month: number) => {
     const calendarElement = document.getElementById("calendar");
     const currentMonthElement = document.getElementById("currentMonth");
@@ -25,55 +101,59 @@ export default function Appointment() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const firstDayOfMonth = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     calendarElement.innerHTML = "";
     const monthNames = [
       "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "July", "August", "September", "October", "November", "December",
     ];
     currentMonthElement.innerText = `${monthNames[month]} ${year}`;
 
-    const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; 
+    const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-    daysOfWeek.forEach(day => {
+    // Add headers for days of the week
+    daysOfWeek.forEach((day) => {
       const dayElement = document.createElement("div");
       dayElement.className = "text-center font-semibold text-almost-black text-xs sm:text-base";
       dayElement.innerText = day;
       calendarElement.appendChild(dayElement);
     });
 
+    // Add empty slots for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
       const emptyDayElement = document.createElement("div");
       calendarElement.appendChild(emptyDayElement);
     }
 
+    // Loop through all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
+      const formattedDate = currentDate.toISOString().split("T")[0]; // Format: YYYY-MM-DD
 
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
       dayElement.innerText = String(day);
 
-      // Style for past dates
       if (currentDate < today) {
+        // Disable past dates
         dayElement.className =
           "text-center py-2 border text-gray-200 cursor-not-allowed text-xs sm:text-base";
-      }
-
-      // Style for today, ensuring it’s selectable within working hours
-      const isToday = currentDate.getTime() === today.getTime();
-      const todayTimesAvailable = isToday && getAvailableTimesForToday().length > 0;
-
-      if (isToday && todayTimesAvailable) {
+      } else if (availabilities && availabilities[formattedDate]?.timeSlots?.length > 0) {
+        // Enable clickable dates with availability
         dayElement.classList.add("bg-violet-50", "text-blue-700", "cursor-pointer");
         dayElement.addEventListener("click", () => handleDateSelection(currentDate));
+      } else {
+        // Dates with no availability
+        dayElement.className =
+          "text-center py-2 border text-gray-300 cursor-not-allowed text-xs sm:text-base";
       }
 
-      // Style for selected date
+      // Highlight selected date
       if (
         selectedDate &&
         currentDate.getFullYear() === selectedDate.getFullYear() &&
@@ -83,13 +163,14 @@ export default function Appointment() {
         dayElement.classList.add("bg-blue-200", "text-white");
       }
 
-      if (currentDate >= today && !isToday) {
-        dayElement.addEventListener("click", () => handleDateSelection(currentDate));
-      }
-
       calendarElement.appendChild(dayElement);
-    }
 
+      if (holidays.includes(`${year}-${month + 1 < 10 ? '0' : ''}${month + 1}-${day < 10 ? '0' : ''}${day}`)) {
+        dayElement.classList.add("bg-gray-200", "text-red-500");
+      }
+    }
+    
+    // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
       prevButton.classList.add("opacity-0");
@@ -99,56 +180,67 @@ export default function Appointment() {
     }
   };
 
+
+  // Handle date selection
   const handleDateSelection = (date: Date) => {
+    const formattedDate = date.toISOString().split("T")[0];
     setSelectedDate(date);
+  
+    if (availabilities && availabilities[formattedDate]?.timeSlots) {
+      // Format time slots to show in 24-hour format (HH:mm)
+      const formattedTimes = availabilities[formattedDate].timeSlots.map((slot: any) => {
+        const time = new Date(slot.start);
+        let hours = time.getHours();
+        const minutes = time.getMinutes();
+  
+        // Format time to 24-hour format
+        const formattedTime = `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
+        return formattedTime;
+      });
+      setAvailableTimes(formattedTimes);
+    } else {
+      setAvailableTimes([]);
+    }
+    setSelectedTime(null);
+  };  
 
-    const isWeekend = [0, 6].includes(date.getDay());
-    setAvailableTimes(isWeekend ? getWeekendHours() : getWeekdayHours());
-  };
-
-  const getWeekdayHours = (): string[] => {
-    return ["07:00", "08:00", "09:00", "10:00", "12:00", "13:00", "14:00", "16:00", "17:00"];
-  };
-
-  const getWeekendHours = (): string[] => {
-    return ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
-  };
-
-  const getAvailableTimesForToday = (): string[] => {
-    const now = new Date();
-    const isWeekend = [0, 6].includes(now.getDay()); 
-    const allTimes = isWeekend ? getWeekendHours() : getWeekdayHours(); 
-    const currentTime = `${now.getHours()}:${now.getMinutes() < 10 ? "0" : ""}${now.getMinutes()}`;
-
-    return allTimes.filter(time => {
-      const [hours, minutes] = time.split(":").map(Number);
-      const timeDate = new Date();
-      timeDate.setHours(hours, minutes, 0, 0);
-      return timeDate > now;
-    });
-  };
-
+  // Handle saving the booking
   const handleSave = async () => {
-    if (!selectedDate || !availableTimes.length) return;
-
+    console.log("Selected Date:", selectedDate);
+    console.log("Selected Time:", selectedTime);
+    console.log("Dentist ID:", dentistId);
+    console.log("Clinic ID:", clinicId);
+    
+    if (!selectedDate || !selectedTime || !dentistId || !clinicId) return;
+  
     const payload = {
       date: selectedDate.toISOString(),
-      time: availableTimes[0], 
+      time: selectedTime,
+      dentistId,
+      clinicId,
     };
-
+  
     try {
       await fetch("/api/booking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+  
+      // Save both date and time in sessionStorage
+      sessionStorage.setItem("selectedDate", selectedDate.toISOString());
+      sessionStorage.setItem("selectedTime", selectedTime);
+      sessionStorage.setItem("dentist", dentistId);
+      sessionStorage.setItem("clinic", clinicId);
 
+  
       router.push(`/patient-tool/book-appointment`);
     } catch (err) {
       console.error("Error saving booking:", err);
       alert("Failed to book appointment.");
     }
   };
+  
 
   return (
     <div>
@@ -158,67 +250,128 @@ export default function Appointment() {
 
           <nav className="flex m-8" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-2 rtl:space-x-reverse">
-                <li className="inline-flex items-center">
-                <a href="/patient-tool/landing-page" className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-white">
-                    <svg className="w-3 h-3 me-2.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z"/>
-                    </svg>
-                    home
+              {/* Breadcrumb navigation */}
+              <li className="inline-flex items-center">
+                <a
+                  href="/patient-tool/landing-page"
+                  className="inline-flex items-center text-sm font-medium text-popup-blue hover:text-main-blue dark:text-gray-400 dark:hover:text-blue"
+                >
+                  <svg
+                    className="w-3 h-3 me-2.5"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
+                  </svg>
+                  Home
                 </a>
-                </li>
-                <li>
+              </li>
+              <li>
                 <div className="flex items-center">
-                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
-                    </svg>
-                    <a href="/patient-tool/find-care" className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-white">find care</a>
+                  <svg
+                    className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 6 10"
+                  >
+                    <path
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m1 9 4-4-4-4"
+                    />
+                  </svg>
+                  <a
+                    href="/patient-tool/find-care"
+                    className="ms-1 text-sm font-medium text-popup-blue hover:text-main-blue md:ms-2 dark:text-gray-400 dark:hover:text-blue"
+                  >
+                    Find Care
+                  </a>
                 </div>
-                </li>
-                <li aria-current="page">
+              </li>
+              <li aria-current="page">
                 <div className="flex items-center">
-                    <svg className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m1 9 4-4-4-4"/>
-                    </svg>
-                    <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">find appointment</span>
+                  <svg
+                    className="rtl:rotate-180 w-3 h-3 text-popup-blue mx-1"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 6 10"
+                  >
+                    <path
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m1 9 4-4-4-4"
+                    />
+                  </svg>
+                  <span className="ms-1 text-sm font-medium text-gray-500 md:ms-2 dark:text-gray-400">
+                    Find Appointment
+                  </span>
                 </div>
-                </li>
+              </li>
             </ol>
-            </nav>
+          </nav>
 
           <SubBackground>
+          <h1 className="text-4xl font-bold text-[#1E3582] text-center mb-5">
+            Find an Appointment at Your Chosen Clinic
+          </h1>
+          <div className="text-lg text-gray-600 mb-6 text-center">
+            <p>
+              Below, you can view the clinic's schedule. You can choose from the
+              available dates and times.
+            </p>
+            <p>
+              By clicking on a highlighted date, you'll be able to select an available time slot to book your appointment.
+            </p>
+          </div>
+
             <div className="flex items-center justify-center hover:max-h-screen ">
               <div className="lg:w-7/12 md:w-9/12 sm:w-10/12 mx-auto p-4">
                 <div className="bg-white-blue shadow-lg rounded-lg overflow-hidden">
                   <div className="flex items-center justify-between px-6 py-3 bg-main-blue">
-                    <button
-                      id="prevMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 0) {
-                          setCurrentMonth(11);
-                          setCurrentYear(prev => prev - 1);
-                        } else {
-                          setCurrentMonth(prev => prev - 1);
-                        }
-                      }}
-                    >
-                      previous
-                    </button>
-                    <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
-                    <button
-                      id="nextMonth"
-                      className="text-white-blue"
-                      onClick={() => {
-                        if (currentMonth === 11) {
-                          setCurrentMonth(0);
-                          setCurrentYear(prev => prev + 1);
-                        } else {
-                          setCurrentMonth(prev => prev + 1);
-                        }
-                      }}
-                    >
-                      next
-                    </button>
+                  <button
+                  id="prevMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentMonth(11);
+                      setCurrentYear((prev) => prev - 1);
+                    } else {
+                      setCurrentMonth((prev) => prev - 1);
+                    }
+                  }}
+                >
+                  previous
+                </button>
+
+                <h2 id="currentMonth" className="text-white-blue text-sm sm:text-base"></h2>
+
+                <button
+                  id="nextMonth"
+                  className="text-white-blue"
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentMonth(0);
+                      setCurrentYear((prev) => prev + 1);
+                    } else {
+                      setCurrentMonth((prev) => prev + 1);
+                    }
+                  }}
+                  disabled={
+                    (currentYear > new Date().getFullYear() + 1) || 
+                    (currentYear === new Date().getFullYear() + 1 && currentMonth > new Date().getMonth())
+                  }
+                >
+                  next
+                </button>
+
                   </div>
                   <div className="grid grid-cols-7 gap-2 p-4" id="calendar"></div>
                 </div>
@@ -227,7 +380,9 @@ export default function Appointment() {
 
             {selectedDate && (
               <div className="p-4">
-                <h3 className="text-lg font-semibold text-main-blue">selected date: {selectedDate.toDateString()}</h3>
+                <h3 className="text-lg font-semibold text-main-blue">
+                  selected date: {selectedDate.toDateString()}
+                </h3>
                 <h4 className="text-md font-medium text-main-blue mt-4">select a time:</h4>
                 <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                   {availableTimes.map((time) => (
@@ -238,6 +393,7 @@ export default function Appointment() {
                         name="time"
                         value={time}
                         className="hidden peer"
+                        onChange={() => setSelectedTime(time)}
                       />
                       <label
                         htmlFor={time}
@@ -251,10 +407,10 @@ export default function Appointment() {
                 <div className="flex items-center justify-center mt-4">
                   <button
                     type="button"
-                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:bg-blue-200 hover:text-main-blue hover:scale-110"
+                    className="px-16 py-2 text-white-blue bg-main-blue rounded-lg hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
                     onClick={handleSave}
                   >
-                    save
+                    next
                   </button>
                 </div>
               </div>

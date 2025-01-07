@@ -213,6 +213,185 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         }
       });
     });
+    
+
+
+    // Subscribe to the "pearl-fix/availability/get/clinic-id" topic
+mqttHandler.subscribe("pearl-fix/availability/get/clinic-id", async (msg) => {
+  try {
+    console.log(`Message received on 'pearl-fix/availability/get/clinic-id':`, msg);
+
+    // Parse the incoming message
+    const { clinicId } = JSON.parse(msg.toString());
+    if (!clinicId) {
+      console.error("Invalid message: Missing clinicId");
+      return;
+    }
+
+    console.log("Fetching availability for clinicId:", clinicId);
+
+    // Fetch availability for the given clinic
+    const availability = await Availability.findOne({ clinicId });
+
+    if (!availability) {
+      console.log(`No availability found for clinicId: ${clinicId}`);
+      await mqttHandler.publish(
+        "pearl-fix/availability/clinic-id/response",
+        JSON.stringify({
+          status: "failure",
+          message: "No availability found.",
+        })
+      );
+      return;
+    }
+
+    console.log(`Found availability for clinicId: ${clinicId}`);
+
+    // Filter the time slots to only include those with status "available"
+    const availableTimeSlots = availability.timeSlots
+      .filter((timeSlot) => timeSlot.status === "available")
+      .map((timeSlot) => ({
+        start: timeSlot.start.toISOString(),
+        end: timeSlot.end.toISOString(),
+        status: timeSlot.status,
+      }));
+
+    // If no available time slots found, return a failure response
+    if (availableTimeSlots.length === 0) {
+      await mqttHandler.publish(
+        "pearl-fix/availability/clinic-id/response",
+        JSON.stringify({
+          status: "failure",
+          message: "No available time slots found.",
+        })
+      );
+      return;
+    }
+
+    // Remove duplicates by using a Map based on the start and end times
+    const uniqueTimeSlots = Array.from(
+      new Map(
+        availableTimeSlots.map((slot) => [
+          `${slot.start}-${slot.end}`, // key is a combination of start and end times
+          slot,
+        ])
+      ).values()
+    );
+
+    // Publish the available time slots to the response topic
+    await mqttHandler.publish(
+      "pearl-fix/availability/clinic-id/response",
+      JSON.stringify({
+        status: "success",
+        clinicId,
+        availability: uniqueTimeSlots, // Send the unique time slots
+      })
+    );
+
+    console.log(`Published availability to 'pearl-fix/availability/clinic-id/response'`);
+  } catch (error) {
+    console.error("Error processing availability message:", error);
+    await mqttHandler.publish(
+      "pearl-fix/availability/clinic-id/response",
+      JSON.stringify({
+        status: "failure",
+        message: "Error processing availability message.",
+        error: error.message,
+      })
+    );
+  }
+});
+
+// Subscribe to the "pearl-fix/availability/clinic-id" topic
+mqttHandler.subscribe("pearl-fix/availability/clinic-id", async (msg) => {
+  try {
+    console.log(`Message received on 'pearl-fix/availability/clinic-id':`, msg);
+
+    // Parse the incoming message
+    const { clinicId } = JSON.parse(msg.toString());
+    if (!clinicId) {
+      console.error("Invalid message: Missing clinicId");
+      return;
+    }
+
+    console.log("Fetching availabilities for clinicId:", clinicId);
+
+    // Fetch availabilities for the given clinic
+    const availabilities = await Availability.find({ clinicId });
+
+    if (!availabilities || availabilities.length === 0) {
+      console.log(`No availabilities found for clinicId: ${clinicId}`);
+      await mqttHandler.publish(
+        "pearl-fix/availability/clinic/all",
+        JSON.stringify({
+          status: "failure",
+          message: "No availabilities found.",
+        })
+      );
+      return;
+    }
+
+    console.log(`Found ${availabilities.length} availabilities for clinicId: ${clinicId}`);
+
+    // Collect and filter only the available time slots for the clinic
+    const availableTimeSlots = availabilities.flatMap((availability) =>
+      availability.timeSlots
+        .filter((timeSlot) => timeSlot.status === "available") // Only include available time slots
+        .map((timeSlot) => ({
+          start: timeSlot.start.toISOString(),  // Convert start time to ISO string
+          end: timeSlot.end.toISOString(),      // Convert end time to ISO string
+          status: timeSlot.status,
+          dentist: availability.dentist, // Add dentist details to each time slot
+        }))
+    );
+
+    // Remove duplicates by using a Map based on the start and end times
+    const uniqueTimeSlots = Array.from(
+      new Map(
+        availableTimeSlots.map((slot) => [
+          `${slot.start}-${slot.end}`, // key is a combination of start and end times
+          slot,
+        ])
+      ).values()
+    );
+
+    // If no available time slots found, return a failure response
+    if (uniqueTimeSlots.length === 0) {
+      await mqttHandler.publish(
+        "pearl-fix/availability/clinic/all",
+        JSON.stringify({
+          status: "failure",
+          message: "No available time slots found.",
+        })
+      );
+      return;
+    }
+
+    // Publish the unique available time slots to the topic
+    await mqttHandler.publish(
+      "pearl-fix/availability/clinic/all",
+      JSON.stringify({
+        status: "success",
+        clinicId,
+        timeSlots: uniqueTimeSlots,  // Send the filtered available time slots with dentist details
+      })
+    );
+
+    console.log(`Published available timeSlots to 'pearl-fix/availability/clinic/all'`);
+  } catch (error) {
+    console.error("Error processing availability message:", error);
+    await mqttHandler.publish(
+      "pearl-fix/availability/clinic/all",
+      JSON.stringify({
+        status: "failure",
+        message: "Error processing availability message.",
+        error: error.message,
+      })
+    );
+  }
+});
+
+
   } catch (error) {
     console.error("Unexpected error:", error);
   }
@@ -328,6 +507,7 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
 };
 
 export const getAvailability: RequestHandler = async (req, res): Promise<void> => {
+  // pearl-fix/availability/get/clinic-id
   const { dentistId } = req.params;
 
   try {
@@ -345,26 +525,39 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
   }
 };
 
+
+
 export const getAvailabilitiesForClinic: RequestHandler = async (req, res): Promise<void> => {
-  const { clinicId } = req.params;
-  console.log("clinicId:", clinicId);
+  const { clinicId } = req.body;
 
   try {
-    // Validate the clinicId
     if (!clinicId) {
       res.status(400).json({ message: "Clinic ID is required." });
       return;
     }
 
-    // Fetch all availabilities for the given clinic
     const availabilities = await Availability.find({ clinicId });
 
     if (!availabilities || availabilities.length === 0) {
       res.status(404).json({ message: "No availabilities found for the given clinic." });
       return;
     }
+    
+    const formattedAvailabilities = availabilities.map((availability) => {
+      return {
+        _id: availability._id,
+        dentist: availability.dentist, // You can modify this to return more details of the dentist if needed
+        workDays: availability.workDays,
+        timeSlots: availability.timeSlots.map((timeSlot) => ({
+          start: timeSlot.start.toISOString(),  // Format start time as string
+          end: timeSlot.end.toISOString(),  // Format end time as string
+          status: timeSlot.status,
+        })),
+      };
+    });
 
-    res.status(200).json({ availabilities });
+    res.status(200).json({ availabilities: formattedAvailabilities });
+
   } catch (error) {
     console.error("Error fetching availabilities for clinic:", error);
     res.status(500).json({ message: "Server error", error });

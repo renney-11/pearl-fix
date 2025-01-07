@@ -25,10 +25,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Connect to RabbitMQ
-    connection = await amqp.connect(
-      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-    );
-    channel = await connection.createChannel();
+    const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
+
+  // Connect to RabbitMQ
+  connection = await amqp.connect(amqpUrl);
+  channel = await connection.createChannel();
 
     // Publish the message to set the availability
     const setAvailabilityQueue = "pearl-fix/availability/set";
@@ -45,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     console.log("Published message to set availability", payload);
 
-    const responseQueue = "pearl-fix/availability/confirmations";
+    const responseQueue = "pearl-fix/availability/confirmation";
     await channel.assertQueue(responseQueue, { durable: true });
 
     console.log("Waiting for confirmation...");

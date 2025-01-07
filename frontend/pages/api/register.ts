@@ -4,11 +4,23 @@ import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 let connection: Connection | null = null;
 let channel: Channel | null = null;
 
+// Reset function for clearing connection and state
+async function resetState() {
+  if (channel) {
+    await channel.close(); // Close any existing channel
+    channel = null;
+  }
+  if (connection) {
+    await connection.close(); // Close any existing connection
+    connection = null;
+  }
+}
+
 async function connectRabbitMQ() {
   if (!connection) {
-    connection = await amqp.connect(
-      "amqps://lvjalbhx:gox3f2vN7d06gUQnOVVizj36Rek93da6@hawk.rmq.cloudamqp.com/lvjalbhx"
-    );
+    const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost"; // Get URL from env variable
+    console.log(`Connecting to RabbitMQ at ${amqpUrl}...`);
+    connection = await amqp.connect(amqpUrl);
   }
   if (!channel) {
     channel = await connection.createChannel();
@@ -32,6 +44,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Reset everything to ensure no old state is used
+  await resetState(); // Clear old cache, channels, and connections
+
   const { name, email, password } = req.body;
 
   try {
@@ -41,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Publish signup data
     const payload = { name, email, password };
-    await channel.assertQueue(registerQueue, { durable: true });
+    await setupQueue(registerQueue);
     channel.sendToQueue(registerQueue, Buffer.from(JSON.stringify(payload)), {
       persistent: true,
     });
@@ -56,8 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!tokenReceived) {
         console.error("Timeout waiting for token.");
         res.status(500).json({ error: "Failed to receive token." });
-        channel?.close();
-        connection?.close();
+        resetState(); // Reset state on timeout
       }
     }, 10000); // 10 seconds
 
@@ -70,15 +84,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           clearTimeout(timeout);
           channel.ack(msg);
           res.status(200).json({ token: message.token });
-          channel.close();
-          connection.close();
+          resetState(); // Clean up after success
         }
       }
     });
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Internal server error." });
-    if (channel) await channel.close();
-    if (connection) await connection.close();
+    await resetState(); // Reset on error as well
   }
 }
