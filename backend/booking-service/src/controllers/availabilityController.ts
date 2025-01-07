@@ -497,13 +497,10 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
     );
     console.log(`Published availability ID: ${availability.id} to 'pearl-fix/availability/create/id'.`);
 
-    mqttHandler.close();
   } catch (error) {
     console.error("Error creating availability:", error);
     res.status(500).json({ message: "Server error." });
-  } finally {
-    mqttHandler.close();
-  }
+  } 
 };
 
 export const getAvailability: RequestHandler = async (req, res): Promise<void> => {
@@ -623,7 +620,5 @@ export const removeAvailability: RequestHandler = async (req, res): Promise<void
   } catch (error) {
     console.error("Error removing availability:", error);
     res.status(500).json({ message: "Server error", error });
-  } finally {
-    mqttHandler.close();
   }
 };

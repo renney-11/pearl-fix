@@ -2,17 +2,16 @@ import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import { NextApiRequest, NextApiResponse } from "next";
 
 interface Booking {
-    dentistId: string; // Reference to the Dentist
-    patientId: string; // Reference to the Patient
-    availabilityId: string; // Reference to Availability
-    timeSlot: {
-      start: Date;
-      end: Date;
-    };
-    status: "available" | "booked";
-    clinicId: string; // Reference to the Clinic (optional)
-  }
-  
+  dentistId: string; // Reference to the Dentist
+  patientId: string; // Reference to the Patient
+  availabilityId: string; // Reference to Availability
+  timeSlot: {
+    start: Date;
+    end: Date;
+  };
+  status: "available" | "booked";
+  clinicId: string; // Reference to the Clinic (optional)
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -23,58 +22,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let channel: Channel | null = null;
 
   try {
-    // Connect to RabbitMQ
     const amqpUrl = process.env.RABBITMQ_URL || "amqp://localhost";
 
-  // Connect to RabbitMQ
-  connection = await amqp.connect(amqpUrl);
-  channel = await connection.createChannel();
+    // Connect to RabbitMQ
+    connection = await amqp.connect(amqpUrl);
+    channel = await connection.createChannel();
 
-    // Publish the message to request all clinics
     const getAllBookingsQueue = "pearl-fix/booking/patient/email";
     await channel.assertQueue(getAllBookingsQueue, { durable: true });
 
     const { patientEmail } = req.body;
     console.log(patientEmail);
-    channel.sendToQueue(getAllBookingsQueue, Buffer.from(JSON.stringify({patientEmail})), {
+    channel.sendToQueue(getAllBookingsQueue, Buffer.from(JSON.stringify({ patientEmail })), {
       persistent: true,
     });
 
     const responseQueue = "pearl-fix/booking/patient/all-data";
     await channel.assertQueue(responseQueue, { durable: true });
 
-    const bookingsData = await new Promise<{ success: boolean; message: string; bookings?: Booking[] }>(
-      (resolve, reject) => {
-        const timeout = setTimeout(() => {
-          if (channel) channel.close();
-          if (connection) connection.close();
-          reject(new Error("Timeout waiting for booking data."));
-        }, 10000);
+    const bookingsData = await new Promise<{
+      success: boolean;
+      message: string;
+      bookings?: Booking[];
+    }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (channel) channel.close();
+        if (connection) connection.close();
+        reject(new Error("Timeout waiting for booking data."));
+      }, 10000);
 
-        channel.consume(
-          responseQueue,
-          (msg: ConsumeMessage | null) => {
-            if (msg) {
-              const message = JSON.parse(msg.content.toString());
-              channel.ack(msg);
-              clearTimeout(timeout);
+      channel.consume(
+        responseQueue,
+        (msg: ConsumeMessage | null) => {
+          if (msg) {
+            const message = JSON.parse(msg.content.toString());
+            channel.ack(msg);
+            clearTimeout(timeout);
 
-              if (message.success) {
-                console.log(message);
-                resolve(message);
-              } else {
-                console.log({ success: false, message: "No bookings made for the specified patient." })
-                resolve({ success: false, message: "No bookings made for the specified patient." });
-              }
+            if (message.success) {
+              console.log(message);
+              resolve(message);
+            } else {
+              console.log({
+                success: false,
+                message: "No bookings made for the specified patient.",
+              });
+              resolve({ success: false, message: "No bookings made for the specified patient." });
             }
-          },
-          { noAck: false }
-        );
-      }
-    );
+          }
+        },
+        { noAck: false }
+      );
+    });
 
     if (bookingsData.success) {
-      const enrichedBookings = bookingsData.bookings.map((booking) => ({
+      // Ensure bookings is an array, or default to an empty array
+      const enrichedBookings = (bookingsData.bookings || []).map((booking) => ({
         ...booking,
         start: booking.timeSlot?.start,
         end: booking.timeSlot?.end,
