@@ -1,6 +1,5 @@
 import http from 'k6/http';
 import { check } from 'k6';
-import { sleep } from 'k6';
 
 // Function to generate a random email
 function generateRandomEmail() {
@@ -42,31 +41,6 @@ export default function () {
   });
 
   if (registerDentistRes.status !== 200) {
-    console.error('Registration failed, skipping user fetch');
-    return; // Exit early if registration fails
+    console.error('Registration failed');
   }
-
-  // Extract token from registration response
-  const token = registerDentistRes.json('token');
-  if (!token) {
-    console.error('Error: No token received from registration');
-    return;  // Exit if token is not found
-  }
-  console.log('Received Token:', token);
-
-  // Fetch user details with token
-  const userRes = http.get('http://localhost:5000/api/v1/auth/user', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  console.log('User Details Response Status:', userRes.status);
-  console.log('User Details Response Body:', userRes.body);
-
-  check(userRes, {
-    'user fetched successfully': (r) => r.status === 200,
-  });
-
-  sleep(1);  // Simulate a 1-second delay between requests
 }

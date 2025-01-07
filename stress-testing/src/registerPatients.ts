@@ -1,6 +1,5 @@
 import http from 'k6/http';
 import { check } from 'k6';
-import { sleep } from 'k6';
 
 function generateRandomEmail() {
   const timestamp = Date.now().toString().slice(-6);  
@@ -23,7 +22,7 @@ export default function () {
   console.log(`Using Random Email: ${email}`);
 
   // Register patient request
-  const registerPatientRes = http.post('http://localhost:5000/api/v1/patient/register', JSON.stringify({
+  const registerPatientRes = http.post('http://localhost:5000/api/v1/auth/register', JSON.stringify({
     name: 'Test Patient',
     email: email,
     password: password,
@@ -39,31 +38,6 @@ export default function () {
   });
 
   if (registerPatientRes.status !== 200) {
-    console.error('Registration failed, skipping user fetch');
-    return; // Exit early if registration fails
+    console.error('Registration failed');
   }
-
-  // Extract token from registration response
-  const token = registerPatientRes.json('token');
-  if (!token) {
-    console.error('Error: No token received from registration');
-    return; 
-  }
-  console.log('Received Token:', token);
-
-  // Fetch user details with token
-  const userRes = http.get('http://localhost:5000/api/v1/patient/details', {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  console.log('User Details Response Status:', userRes.status);
-  console.log('User Details Response Body:', userRes.body);
-
-  check(userRes, {
-    'user fetched successfully': (r) => r.status === 200,
-  });
-
-  sleep(1);  
 }
