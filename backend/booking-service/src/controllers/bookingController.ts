@@ -314,6 +314,86 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
   }
 };
 
+
+export const createBookings: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    await mqttHandler.connect();
+    console.log("Connected to MQTT broker");
+
+    const { clinicId, patientId, timeSlot, dentistId, availabilityId } = req.body;
+
+    // Validate required fields
+    if (!clinicId || !patientId || !timeSlot || !dentistId || !availabilityId) {
+      res.status(400).json({ message: "Missing required fields." });
+      return;
+    }
+
+    const { start, end } = timeSlot;
+
+    if (!start || !end) {
+      res.status(400).json({ message: "Invalid timeSlot format." });
+      return;
+    }
+
+    // Parse and validate timeSlot
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate >= endDate) {
+      res.status(400).json({ message: "Invalid timeSlot range." });
+      return;
+    }
+
+    // Create the booking document
+    const booking = new Booking({
+      dentistId,
+      patientId,
+      availabilityId,
+      timeSlot: {
+        start: startDate,
+        end: endDate,
+      },
+      clinicId,
+      status: "booked",
+    });
+
+    await booking.save();
+
+    // Publish success message to MQTT broker
+    await mqttHandler.publish(
+      "pearl-fix/bookings/patient/create/success",
+      JSON.stringify({
+        message: "Booking created successfully.",
+        booking: {
+          id: booking._id,
+          clinicId,
+          patientId,
+          dentistId,
+          timeSlot,
+          availabilityId,
+        },
+      })
+    );
+
+    console.log("Booking created:", booking);
+
+    res.status(201).json({ message: "Booking created successfully.", booking });
+  } catch (error) {
+    console.error("Error creating booking:", error);
+
+    // Publish error message to MQTT broker
+    await mqttHandler.publish(
+      "pearl-fix/bookings/patient/create/error",
+      JSON.stringify({
+        message: "Error creating booking.",
+        error: error.message,
+      })
+    );
+
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
 const listenForPatientsBookings = async (): Promise<void> => {
   try {
     await mqttHandler.connect();
