@@ -182,7 +182,6 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
     console.log(newClinic);
     
 
-    mqttHandler.close();
   } catch (error) {
     console.error("Error during clinic creation:", error);
     res.status(500).json({ message: "Server error" });

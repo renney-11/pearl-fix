@@ -1,6 +1,16 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
+// Function to generate a random alphanumeric string of 24 characters
+function generateRandomId() {
+  const chars = '0123456789abcdef';  // MongoDB ObjectId characters (hexadecimal)
+  let randomId = '';
+  for (let i = 0; i < 24; i++) {
+    randomId += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return randomId;
+}
+
 // Function to generate a random email for dentist
 function generateRandomEmailForDentist() {
   const timestamp = Date.now().toString().slice(-6);  
@@ -25,10 +35,46 @@ function generateRandomAddress() {
   return `${randomNumber} ${randomStreetName} ${randomStreetType}`;
 }
 
+// Function to create availability for a dentist in the clinic
+function createAvailability(dentistId, clinicId) {
+  const timeSlotStart = new Date();
+  timeSlotStart.setHours(10, 0, 0, 0); 
+  const timeSlotEnd = new Date(timeSlotStart.getTime() + 60 * 60 * 1000);  // 1 hour later
+
+  const availabilityData = {
+    dentist: dentistId,
+    clinicId: clinicId,  
+    workDays: ['Monday', 'Wednesday', 'Friday'], 
+    timeSlots: [
+      { start: timeSlotStart.toISOString(), end: timeSlotEnd.toISOString() },
+    ],
+    date: '2025-01-10', 
+  };
+
+  console.log('Creating availability for Dentist:', dentistId, 'at Clinic ID:', clinicId, 'with time slot:', availabilityData.timeSlots[0].start, 'to', availabilityData.timeSlots[0].end);
+
+  const createAvailabilityRes = http.post('http://localhost:7000/api/v1/availability/create/availability', JSON.stringify(availabilityData), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  console.log('Create Availability Response Status:', createAvailabilityRes.status);
+  console.log('Create Availability Response Body:', createAvailabilityRes.body);
+
+  check(createAvailabilityRes, {
+    'availability creation accepted': (r) => r.status === 202, 
+  });
+
+  if (createAvailabilityRes.status !== 202) {
+    console.error('Availability Creation failed. Status code:', createAvailabilityRes.status);
+  } else {
+    console.log('Availability creation accepted, still processing...');
+  }
+}
+
 export let options = {
   stages: [
-    { duration: '1m', target: 30 },  // Ramp up to 30 users for 1 minute
-    { duration: '30s', target: 0 }, // Ramp down to 0 users in 30 seconds
+    { duration: '1m', target: 30 }, 
+    { duration: '30s', target: 0 }, 
   ],
 };
 
@@ -61,30 +107,20 @@ export default function () {
     return;
   }
 
-  // Extract dentist token from registration response
-  const dentistToken = registerDentistRes.json('token');
-  if (!dentistToken) {
-    console.error('Error: No token received for Dentist');
-    return;
-  }
-
-  console.log('Dentist Received Token:', dentistToken);
-
-
   // Now, create a clinic with the dentist's email and random coordinates
   const clinicCoordinates = generateRandomCoordinates();
   const clinicAddress = generateRandomAddress(); 
 
   const clinicData = {
     city: 'Lerum',
-    address: clinicAddress,  // Use the randomly generated address
+    address: clinicAddress,
     clinicName: 'Lerum Smile Care',
     openingHours: {
       start: '10:00',
       end: '20:00'
     },
-    coordinates: clinicCoordinates,  // Use the randomly generated coordinates
-    dentists: [dentistEmail], // Use the dentist email from the registration
+    coordinates: clinicCoordinates, 
+    dentists: [dentistEmail], 
   };
 
   console.log(`Creating Clinic with Dentists: ${clinicData.dentists.join(', ')} at Address: ${clinicData.address} and Coordinates: ${clinicCoordinates.latitude}, ${clinicCoordinates.longitude}`);
@@ -105,7 +141,10 @@ export default function () {
     return;
   }
 
-  console.log('Clinic Created Successfully:', createClinicRes.body);
+  const clinicId = generateRandomId();
+  const dentistId = generateRandomId();
+
+  createAvailability(dentistId, clinicId);
 
   sleep(1);  // Simulate a 1-second delay between iterations
 }

@@ -506,6 +506,74 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
   }
 };
 
+export const createAvailabilities: RequestHandler = async (req, res): Promise<void> => {
+  try {
+
+      try {
+        await mqttHandler.connect();
+        console.log("Connected to MQTT broker");
+
+        const { dentist, workDays, timeSlots, date, clinicId } = req.body;
+        
+        const baseDate = new Date(date);
+
+        const formattedTimeSlots = timeSlots.map((slot: { start: string; end: string }) => {
+          const startTimeParts = slot.start.split(":");
+          const endTimeParts = slot.end.split(":");
+
+          const startDate = new Date(
+            baseDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0)
+          );
+          const endDate = new Date(
+            baseDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0)
+          );
+
+          return {
+            start: startDate,
+            end: endDate,
+            status: "available",
+          };
+        });
+
+        const availability = new Availability({
+          dentist,
+          workDays,
+          timeSlots: formattedTimeSlots,
+          clinicId,  // Add clinicId to the availability document
+        });
+
+        await availability.save();
+
+        // Publish the created availability to broker
+        await mqttHandler.publish(
+          "pearl-fix/availabilities/create/success",
+          JSON.stringify({
+            message: "Availability created successfully.",
+            availability: {
+              dentist,
+              workDays,
+              timeSlots: formattedTimeSlots,
+              clinicId,  // Return the clinicId in the response
+            },
+          })
+        );
+
+        console.log("Availability created:", availability);
+        
+      } catch (error) {
+        console.error("Error processing the message:", error);
+        mqttHandler.publish("pearl-fix/availabilities/create/error", JSON.stringify({ message: "Error processing availability creation." }));
+    };
+
+    // Respond that the request is being processed
+    res.status(202).json({ message: "Availability creation in process." });
+    
+  } catch (error) {
+    console.error("Error creating availability:", error);
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
 export const getAvailability: RequestHandler = async (req, res): Promise<void> => {
   // pearl-fix/availability/get/clinic-id
   const { dentistId } = req.params;
