@@ -34,9 +34,16 @@ export default function Appointment() {
           let extractedDentistId = null;
     
           data.timeSlots.forEach((slot) => {
-            // Parse the start date and subtract one day
+            // Parse the start and end dates
             const correctedStartDate = new Date(slot.start);
-            correctedStartDate.setUTCDate(correctedStartDate.getUTCDate() - 1);
+            const correctedEndDate = new Date(slot.end);
+    
+            // Adjust for one day earlier (if needed) and one hour later
+            correctedStartDate.setUTCDate(correctedStartDate.getUTCDate() - 1); // Adjust for day offset
+            correctedStartDate.setUTCHours(correctedStartDate.getUTCHours() + 1); // Shift time by 1 hour
+    
+            correctedEndDate.setUTCDate(correctedEndDate.getUTCDate() - 1); // Adjust for day offset
+            correctedEndDate.setUTCHours(correctedEndDate.getUTCHours() + 1); // Shift time by 1 hour
     
             const dateKey = correctedStartDate.toISOString().split("T")[0]; // Corrected YYYY-MM-DD
             if (!transformedAvailabilities[dateKey]) {
@@ -50,6 +57,7 @@ export default function Appointment() {
             transformedAvailabilities[dateKey].timeSlots.push({
               ...slot,
               start: correctedStartDate.toISOString(), // Save the adjusted start time
+              end: correctedEndDate.toISOString(), // Save the adjusted end time
             });
           });
     
@@ -67,6 +75,7 @@ export default function Appointment() {
         console.error("Error fetching availabilities:", error);
       }
     };
+    
     
 
     fetchAvailabilities();

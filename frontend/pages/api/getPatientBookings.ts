@@ -46,35 +46,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       bookings?: Booking[];
     }>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        if (channel) channel.close();
-        if (connection) connection.close();
+        console.error("Timeout waiting for booking data.");
         reject(new Error("Timeout waiting for booking data."));
-      }, 10000);
-
+      }, 10000); // 10 seconds timeout
+    
       channel.consume(
         responseQueue,
         (msg: ConsumeMessage | null) => {
           if (msg) {
-            const message = JSON.parse(msg.content.toString());
-            channel.ack(msg);
-            clearTimeout(timeout);
-
-            if (message.success) {
-              console.log(message);
-              resolve(message);
-            } else {
-              console.log({
-                success: false,
-                message: "No bookings made for the specified patient.",
-              });
-              resolve({ success: false, message: "No bookings made for the specified patient." });
+            try {
+              const message = JSON.parse(msg.content.toString());
+              channel.ack(msg); // Acknowledge message
+              clearTimeout(timeout); // Clear timeout
+    
+              if (message.success) {
+                resolve(message);
+              } else {
+                resolve({ success: false, message: "No bookings made for the specified patient." });
+              }
+            } catch (error) {
+              console.error("Error processing message:", error);
+              channel.nack(msg, false, false); // Reject message without requeuing
+              reject(error);
             }
           }
         },
         { noAck: false }
       );
     });
-
+    
     if (bookingsData.success) {
       // Ensure bookings is an array, or default to an empty array
       const enrichedBookings = (bookingsData.bookings || []).map((booking) => ({
