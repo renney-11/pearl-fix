@@ -24,7 +24,7 @@ async function fetchAndUpdateAvailability(channel: Channel): Promise<void> {
     const timeout = setTimeout(() => {
       console.error("Timeout waiting for availability data.");
       reject(new Error("Timeout waiting for availability data."));
-    }, 10000); // 10 seconds timeout
+    }, 100000); // 10 seconds timeout
 
     channel.consume(
       availabilityQueue,
