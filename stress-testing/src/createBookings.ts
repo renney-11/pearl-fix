@@ -1,84 +1,111 @@
 import http from 'k6/http';
-import { check } from 'k6';
+import { check, sleep } from 'k6';
 
-// Function to generate a random email
-function generateRandomEmail() {
-  const timestamp = Date.now().toString().slice(-6);  // Use only the last 6 digits of the timestamp
-  const randomString = Math.random().toString(36).substring(2, 8); // Short random string (6 characters)
-  return `dentist${timestamp}${randomString}@example.com`; // Ensure the length stays within limits
+// Function to generate a random email for dentist
+function generateRandomEmailForDentist() {
+  const timestamp = Date.now().toString().slice(-6);  
+  const randomString = Math.random().toString(36).substring(2, 8); 
+  return `dentist${timestamp}${randomString}@example.com`; 
 }
 
-// Function to generate random availability
-function generateRandomAvailability() {
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const startTime = '08:00'; // Start time for availability
-  const endTime = '17:00'; // End time for availability
-  const day = daysOfWeek[Math.floor(Math.random() * daysOfWeek.length)];
+// Function to generate random coordinates
+function generateRandomCoordinates() {
+  const lat = 57.7222 + (Math.random() - 0.5) * 0.1;
+  const lon = 12.2712 + (Math.random() - 0.5) * 0.1;  
+  return { latitude: lat, longitude: lon };
+}
 
-  return {
-    day: day,
-    startTime: startTime,
-    endTime: endTime,
-  };
+// Function to generate a random clinic address
+function generateRandomAddress() {
+  const streetNames = ["Dental", "Smile", "Health", "Care", "Wellness"];
+  const streetTypes = ["Street", "Avenue", "Road", "Lane"];
+  const randomStreetName = streetNames[Math.floor(Math.random() * streetNames.length)];
+  const randomStreetType = streetTypes[Math.floor(Math.random() * streetTypes.length)];
+  const randomNumber = Math.floor(Math.random() * 1000);  // Random number for street number
+  return `${randomNumber} ${randomStreetName} ${randomStreetType}`;
 }
 
 export let options = {
   stages: [
-    { duration: '1m', target: 10 },  // 10 users for 1 minute
-    { duration: '30s', target: 0 }, // Ramp down to 0 users over 30 seconds
+    { duration: '1m', target: 30 },  // Ramp up to 30 users for 1 minute
+    { duration: '30s', target: 0 }, // Ramp down to 0 users in 30 seconds
   ],
 };
 
 export default function () {
-  // Step 1: Register the dentist
-  const email = generateRandomEmail();
-  const password = 'testpassword';
+  // Register Dentist
+  const dentistEmail = generateRandomEmailForDentist();
+  const dentistPassword = 'testpassword';
 
-  console.log(`Using Random Email: ${email}`);
+  console.log(`Registering Dentist with Email: ${dentistEmail}`);
 
   const registerDentistRes = http.post('http://localhost:5000/api/v1/auth/create', JSON.stringify({
     name: 'Test Dentist',
-    email: email,
-    password: password,
+    email: dentistEmail,
+    password: dentistPassword,
     specialty: 'General Dentistry',
     licenseNumber: 'D123456789',
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
 
+  console.log('Dentist Registration Response Status:', registerDentistRes.status);
+  console.log('Dentist Registration Response Body:', registerDentistRes.body);
+
   check(registerDentistRes, {
-    'registration successful': (r) => r.status === 200,
+    'dentist registration successful': (r) => r.status === 200,
   });
 
   if (registerDentistRes.status !== 200) {
-    console.error('Registration failed');
-    return; // Stop further actions if registration failed
+    console.error('Dentist Registration failed');
+    return;
   }
 
-  console.log('Received Token:', registerDentistRes.json('token'));
+  // Extract dentist token from registration response
+  const dentistToken = registerDentistRes.json('token');
+  if (!dentistToken) {
+    console.error('Error: No token received for Dentist');
+    return;
+  }
 
-  // Step 2: Create availability for the dentist
-  const availability = generateRandomAvailability();
+  console.log('Dentist Received Token:', dentistToken);
 
-  const createAvailabilityRes = http.post('http://localhost:7000/api/v1/availability/create', JSON.stringify({
-    day: availability.day,
-    startTime: availability.startTime,
-    endTime: availability.endTime,
-  }), {
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${registerDentistRes.json('token')}`, // i think the problem is here
+
+  // Now, create a clinic with the dentist's email and random coordinates
+  const clinicCoordinates = generateRandomCoordinates();
+  const clinicAddress = generateRandomAddress(); 
+
+  const clinicData = {
+    city: 'Lerum',
+    address: clinicAddress,  // Use the randomly generated address
+    clinicName: 'Lerum Smile Care',
+    openingHours: {
+      start: '10:00',
+      end: '20:00'
     },
+    coordinates: clinicCoordinates,  // Use the randomly generated coordinates
+    dentists: [dentistEmail], // Use the dentist email from the registration
+  };
+
+  console.log(`Creating Clinic with Dentists: ${clinicData.dentists.join(', ')} at Address: ${clinicData.address} and Coordinates: ${clinicCoordinates.latitude}, ${clinicCoordinates.longitude}`);
+
+  const createClinicRes = http.post('http://localhost:6000/api/v1/clinic/create', JSON.stringify(clinicData), {
+    headers: { 'Content-Type': 'application/json' },
   });
 
-  console.log('Availability Creation Response Status:', createAvailabilityRes.status);
-  console.log('Availability Creation Response Body:', createAvailabilityRes.body);
+  console.log('Create Clinic Response Status:', createClinicRes.status);
+  console.log('Create Clinic Response Body:', createClinicRes.body);
 
-  check(createAvailabilityRes, {
-    'availability creation successful': (r) => r.status === 200,
+  check(createClinicRes, {
+    'clinic creation successful': (r) => r.status === 201,
   });
 
-  if (createAvailabilityRes.status !== 200) {
-    console.error('Availability creation failed');
+  if (createClinicRes.status !== 201) {
+    console.error('Clinic Creation failed');
+    return;
   }
+
+  console.log('Clinic Created Successfully:', createClinicRes.body);
+
+  sleep(1);  // Simulate a 1-second delay between iterations
 }

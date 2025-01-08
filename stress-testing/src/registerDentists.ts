@@ -27,8 +27,6 @@ export default function () {
     name: 'Test Dentist',
     email: email,
     password: password,
-    specialty: 'General Dentistry', // Assuming dentists have a specialty field
-    licenseNumber: 'D123456789', // Assuming there's a license number
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
