@@ -18,6 +18,13 @@ function generateRandomEmailForDentist() {
   return `dentist${timestamp}${randomString}@example.com`; 
 }
 
+// Function to generate a random email for patient
+function generateRandomEmailForPatient() {
+  const timestamp = Date.now().toString().slice(-6);  
+  const randomString = Math.random().toString(36).substring(2, 8); 
+  return `patient${timestamp}${randomString}@example.com`; 
+}
+
 // Function to generate random coordinates
 function generateRandomCoordinates() {
   const lat = 57.7222 + (Math.random() - 0.5) * 0.1;
@@ -36,7 +43,7 @@ function generateRandomAddress() {
 }
 
 // Function to create availability for a dentist in the clinic
-function createAvailability(dentistId, clinicId) {
+function createAvailability(dentistId, clinicId, availabilityId) {
   const timeSlotStart = new Date();
   timeSlotStart.setHours(10, 0, 0, 0); 
   const timeSlotEnd = new Date(timeSlotStart.getTime() + 60 * 60 * 1000);  // 1 hour later
@@ -49,6 +56,7 @@ function createAvailability(dentistId, clinicId) {
       { start: timeSlotStart.toISOString(), end: timeSlotEnd.toISOString() },
     ],
     date: '2025-01-10', 
+    availabilityId: availabilityId 
   };
 
   console.log('Creating availability for Dentist:', dentistId, 'at Clinic ID:', clinicId, 'with time slot:', availabilityData.timeSlots[0].start, 'to', availabilityData.timeSlots[0].end);
@@ -66,8 +74,54 @@ function createAvailability(dentistId, clinicId) {
 
   if (createAvailabilityRes.status !== 202) {
     console.error('Availability Creation failed. Status code:', createAvailabilityRes.status);
+    return null;
   } else {
     console.log('Availability creation accepted, still processing...');
+  }
+}
+
+// Function to create a booking
+function createBooking(patientId, dentistId, clinicId, availabilityId) {
+  // Example of booking date and time setup
+  const bookingDate = '2025-01-10'; 
+  const bookingTime = '10:00:00'; 
+  const timeSlotStart = new Date(`${bookingDate}T${bookingTime}`);
+  const timeSlotEnd = new Date(timeSlotStart.getTime() + 60 * 60 * 1000);  // 1 hour later
+
+  // Construct booking data
+  const bookingData = {
+    patientId: patientId,      
+    dentistId: dentistId,    
+    clinicId: clinicId,       
+    availabilityId: availabilityId,
+    date: bookingDate,       
+    timeSlot: {        
+      start: timeSlotStart.toISOString(),
+      end: timeSlotEnd.toISOString(),
+    },
+    status: 'confirmed', 
+  };
+
+  console.log('Creating booking for Patient:', patientId, 'with Dentist:', dentistId, 'at Clinic ID:', clinicId, 'using Availability ID:', availabilityId, 'for time slot:', bookingData.timeSlot.start, 'to', bookingData.timeSlot.end);
+
+ 
+  const createBookingRes = http.post('http://localhost:7000/api/v1/booking/create/bookings', JSON.stringify(bookingData), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+
+  console.log('Create Booking Response Status:', createBookingRes.status);
+  console.log('Create Booking Response Body:', createBookingRes.body);
+
+  check(createBookingRes, {
+    'booking creation accepted': (r) => r.status === 201,  // Assuming 201 is the success code
+  });
+
+
+  if (createBookingRes.status !== 201) {
+    console.error('Booking Creation failed. Status code:', createBookingRes.status);
+  } else {
+    console.log('Booking creation accepted, processing...');
   }
 }
 
@@ -107,6 +161,32 @@ export default function () {
     return;
   }
 
+  // Register Patient 
+  const patientEmail = generateRandomEmailForPatient();
+  const patientPassword = 'testpassword';
+
+  console.log(`Registering Patient with Email: ${patientEmail}`);
+
+  const registerPatientRes = http.post('http://localhost:5000/api/v1/auth/register', JSON.stringify({
+    name: 'Test Patient',
+    email: patientEmail,
+    password: patientPassword,
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  console.log('Patient Registration Response Status:', registerPatientRes.status);
+  console.log('Patient Registration Response Body:', registerPatientRes.body);
+
+  check(registerPatientRes, {
+    'patient registration successful': (r) => r.status === 200,
+  });
+
+  if (registerPatientRes.status !== 200) {
+    console.error('Patient Registration failed');
+    return;
+  }
+
   // Now, create a clinic with the dentist's email and random coordinates
   const clinicCoordinates = generateRandomCoordinates();
   const clinicAddress = generateRandomAddress(); 
@@ -143,8 +223,10 @@ export default function () {
 
   const clinicId = generateRandomId();
   const dentistId = generateRandomId();
+  const availabilityId = generateRandomId(); 
 
-  createAvailability(dentistId, clinicId);
+  createAvailability(dentistId, clinicId, availabilityId);
+  createBooking(generateRandomId(), dentistId, clinicId, availabilityId);
 
   sleep(1);  // Simulate a 1-second delay between iterations
 }

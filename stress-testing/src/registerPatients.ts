@@ -41,3 +41,5 @@ export default function () {
     console.error('Registration failed');
   }
 }
+
+
