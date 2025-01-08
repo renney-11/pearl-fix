@@ -68,6 +68,4 @@ export class MQTTHandler {
       console.error("Failed to close RabbitMQ connection:", error);
     }
   }
-
- 
 }

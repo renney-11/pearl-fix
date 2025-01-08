@@ -94,41 +94,25 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
   const { city, address, clinicName, openingHours, coordinates, dentists } = req.body;
 
   try {
-    console.log("Received request to create clinic:", { city, address, clinicName, openingHours, coordinates, dentists });
-
-    // Use existing connection instead of creating a new one for every request
-    if (!mqttHandler.isConnected()) {
-      console.log("MQTT handler is not connected, connecting...");
-      await mqttHandler.connect(); // Ensure the connection is established only once
-      console.log("MQTT connected successfully");
-    } else {
-      console.log("MQTT handler already connected");
-    }
-
     // Check if clinic already exists
-    console.log("Checking if clinic already exists at address:", address);
+    await mqttHandler.connect();
     const clinicExists = await Clinic.findOne({ address });
     if (clinicExists) {
-      console.log("Clinic with this address already exists:", address);
       res.status(400).json({ message: "Clinic with this address already exists" });
       return;
-    } else {
-      console.log("Clinic not found, proceeding with creation.");
     }
 
     // Publish dentists' emails to the topic
     if (Array.isArray(dentists) && dentists.length > 0) {
-      console.log("Publishing dentists' emails to MQTT topic...");
       for (const email of dentists) {
         if (typeof email === "string" && email.trim() !== "") {
-          console.log(`Publishing email: ${email} to "pearl-fix/clinic/create/email"`);
           await mqttHandler.publish(
             "pearl-fix/clinic/create/email",
             JSON.stringify({ email })
           );
           console.log(`Published successful message to "pearl-fix/clinic/create/email": ${email}`);
         } else {
-          console.error("Invalid email format in dentists array:", email);
+          console.error("Invalid email format in dentists array.");
         }
       }
     } else {
@@ -136,18 +120,16 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
     }
 
     // Collect dentist data from the subscription
-    console.log("Waiting for dentist data from MQTT subscription...");
     const receivedDentists: any[] = await new Promise((resolve, reject) => {
       const dentistsData: any[] = [];
       const timeout = setTimeout(() => {
+        // Resolve with collected dentists after timeout
         if (dentistsData.length > 0) {
-          console.log("Dentists received within timeout.");
           resolve(dentistsData);
         } else {
-          console.error("Timeout reached, no dentists received.");
           reject(new Error("No dentists received from MQTT subscription"));
         }
-      }, 10000); // Adjust timeout based on expected delays
+      }, 5000); // Adjust timeout based on expected delays
 
       mqttHandler.subscribe("pearl-fix/clinic/create/dentist", (msg) => {
         try {
@@ -155,7 +137,6 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
           console.log("Message received on /clinic/create/dentist topic:", message);
 
           if (message.dentist) {
-            console.log("Adding dentist to the list:", message.dentist);
             dentistsData.push(message.dentist);
           }
         } catch (error) {
@@ -164,10 +145,8 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
       });
     });
 
-    console.log("Dentists data collected:", receivedDentists);
 
     // Create a new clinic with received dentists
-    console.log("Creating a new clinic with received dentists...");
     const newClinic = new Clinic({
       city,
       address,
@@ -177,10 +156,8 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
       dentists: receivedDentists, // Store received dentists
     });
 
-    console.log("Saving new clinic to the database...");
     // Save the clinic to the database
     await newClinic.save();
-    console.log("New clinic saved successfully:", newClinic);
 
     // Return the clinic details as response
     res.status(201).json({
@@ -195,19 +172,19 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
         dentists: receivedDentists, // Include dentists in the response
       },
     });
-    console.log("Response sent with clinic details");
+    console.log(newClinic);
 
-    // Publish clinic creation event with emails
-    console.log("Publishing clinic creation event with ID and emails...");
     await mqttHandler.publish(
       "pearl-fix/clinic/create/id",
       JSON.stringify({ id: newClinic.id, emails: dentists })
     );
     console.log(`Published successful message to "pearl-fix/clinic/create/id": ${newClinic.id} with emails: ${dentists}`);
+    
 
+    mqttHandler.close();
   } catch (error) {
     console.error("Error during clinic creation:", error);
-    res.status(500).json({ message: "Server error", error: error.message, stack: error.stack });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
