@@ -1,27 +1,28 @@
-import dotenv from 'dotenv';  // Ensure dotenv is imported
-dotenv.config();  // Load the .env file
-
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+
+// Load environment variables
+dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-console.log('MongoDB URI:', MONGODB_URI);  // Should print the actual URI if loaded correctly
+console.log('MongoDB URI:', MONGODB_URI);
 
 const dbConnect = async () => {
+  if (!MONGODB_URI) {
+    console.error('MongoDB URI is missing!');
+    return;
+  }
+
+  console.log('Connecting to database...', MONGODB_URI);
+
   try {
-    if (!MONGODB_URI) {
-      console.warn("MongoDB URI is not set. Skipping database connection.");
-      return;
-    }
-
-    console.log('Connecting to database...', MONGODB_URI);
-
+    // Updated connect method without deprecated options
     await mongoose.connect(MONGODB_URI);
-
     console.log('Database connected');
   } catch (error) {
     console.error('Database connection error:', error);
-    process.exit(1);
+    throw error; // Ensure app fails gracefully
   }
 };
 
