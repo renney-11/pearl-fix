@@ -846,8 +846,40 @@ const handleAvailabilityCreateIdMessage = async (msg: string): Promise<void> => 
 };
 
 export const register: RequestHandler = async (req, res): Promise<void> => {
-  res.status(405).json({ message: "Use the message queue to register patients" });
-};
+  console.log('Received request to register patient'); // Debug log
+  const { name, email, password } = req.body;
+
+  try {
+    if (!validateFields(req, res, ["name", "email", "password"])) return;
+    if (!validateStringLength(req, res, "name", 32, 8)) return;
+    if (!validateStringLength(req, res, "email", 32, 8)) return;
+    if (!validateStringLength(req, res, "password", 32, 8)) return;
+    if (!validateEmailFormat(req, res, "email")) return;
+    if (!validateNameHasSpace(req, res, "name")) return;
+
+    const existingPatient = await Patient.findOne({ email });
+    if (existingPatient) {
+      await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ message: "Patient already exists" }));
+      res.status(400).json({ message: "Patient already exists" });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const patient = new Patient({
+      name,
+      email,
+      password: hashedPassword,
+    });
+    await patient.save();
+
+    const token = await generateToken({ id: patient.id, type: "patient" });
+    await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ token }));
+
+    res.status(200).json({ token });
+  } catch (error) {
+    console.error("Error in patient registration:", error);
+    res.status(500).json({ message: "Server error" });
+  }};
 
 export const login: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to login users" });

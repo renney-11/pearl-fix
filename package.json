@@ -6,5 +6,10 @@
     "leaflet-routing-machine": "^3.2.12",
     "mqtt": "^5.10.2",
     "react-leaflet": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/k6": "^0.54.2",
+    "k6": "^0.0.0",
+    "typescript": "^5.7.2"
   }
 }
