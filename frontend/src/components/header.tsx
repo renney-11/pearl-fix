@@ -15,29 +15,34 @@ export default function Header() {
   // Logout function
   const handleLogout = async () => {
     try {
-      // Call the purge API
-      const response = await fetch("/api/purge", { method: "POST" });
-      if (response.ok) {
-        console.log("Queues purged successfully.");
+      const email = sessionStorage.getItem("email");
+      if (email) {
+        // Call the API route to publish the logout message
+        const response = await fetch("/api/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+  
+        if (!response.ok) {
+          console.error("Failed to send logout message");
+          return;
+        }
+        console.log("Logout message sent successfully.");
       } else {
-        console.error("Failed to purge queues.");
+        console.error("Email not found in session storage.");
       }
+  
+      // Clear session data
+      sessionStorage.clear();
+  
+      setIsAuthenticated(false);
+      router.push("/"); // Redirect to home page
     } catch (error) {
-      console.error("Error calling purge API:", error);
+      console.error("Error during logout:", error);
     }
-
-    // Clear session data
-    sessionStorage.removeItem("authToken");
-    sessionStorage.removeItem("email");
-    sessionStorage.removeItem("clinic");
-    sessionStorage.removeItem("clinicAddress");
-    sessionStorage.removeItem("clinicName");
-    sessionStorage.removeItem("dentist");
-    sessionStorage.removeItem("selectedTime");
-    sessionStorage.removeItem("selectedDate");
-
-    setIsAuthenticated(false);
-    router.push("/"); // Redirect to home page
   };
 
 

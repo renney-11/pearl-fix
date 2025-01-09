@@ -9,11 +9,7 @@ import Patient, { IPatient } from "../models/Patient";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
 import { register as prometheusRegister } from "prom-client";
-import { Counter } from "prom-client";
-
-
-
-
+import { Gauge } from "prom-client";
 
 declare global {
   namespace Express {
@@ -26,14 +22,19 @@ declare global {
   }
 }
 
-const patientLoginCounter = new Counter({
-  name: "patient_logins_total",
-  help: "Total number of successful patient logins",
+const patientLoggedInGauge = new Gauge({
+  name: "patient_logged_in_total",
+  help: "Current number of logged-in patients",
 });
 
-// Example: Increment the counter
-export const incrementLoginCounter = () => {
-  patientLoginCounter.inc();
+// Increment on login
+export const incrementLoginGauge = () => {
+  patientLoggedInGauge.inc();
+};
+
+// Decrement on logout
+export const decrementLoginGauge = () => {
+  patientLoggedInGauge.dec();
 };
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
@@ -152,9 +153,12 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           JSON.stringify({ token })
         );
 
-        // Increment Prometheus Counter for successful logins
-        patientLoginCounter.inc();
-        console.log(patientLoginCounter);
+        if (patient && (await bcrypt.compare(password, patient.password))) {
+          const token = await generateToken({ id: patient.id, type: "patient" });
+          await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ token }));
+          incrementLoginGauge(); // Increment the Gauge
+        }
+    
 
         console.log("Login successful and token published for email:", email);
       } catch (err) {
@@ -223,6 +227,26 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         );
       }
     });
+
+    // Logout count
+    await mqttHandler.subscribe("pearl-fix/patient/logout", async (msg) => {
+      try {
+        const parsedMessage = JSON.parse(msg);
+        const { email } = parsedMessage;
+    
+        if (!email) {
+          console.error("Missing email in logout message");
+          return;
+        }
+    
+        // Decrement the Gauge
+        decrementLoginGauge();
+        console.log(`Patient logged out: ${email}.`);
+      } catch (err) {
+        console.error("Error processing logout message:", err);
+      }
+    });
+    
 
     // Create booking with patient
     await mqttHandler.subscribe("pearl-fix/booking/create/patient/email", async (msg) => {
@@ -874,8 +898,8 @@ export const login: RequestHandler = async (req, res): Promise<void> => {
 
 // Expose Prometheus metrics
 export const metrics: RequestHandler = async (req, res): Promise<void> => {
-  res.set("Content-Type", prometheusRegister .contentType); // Use 'register' directly
-  res.end(await prometheusRegister .metrics());
+  res.set("Content-Type", prometheusRegister.contentType);
+  res.end(await prometheusRegister.metrics());
 };
 
 
