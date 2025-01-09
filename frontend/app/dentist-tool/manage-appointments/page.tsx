@@ -22,59 +22,76 @@ interface Booking {
 export default function UpcomingAppointments() {
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  
-    useEffect(() => {
-      const storedEmail = sessionStorage.getItem("email");
-      if (storedEmail) setSelectedEmail(storedEmail);
-    }, []);
 
-    useEffect(() => {
-      if (!selectedEmail) return;
-  
-      const fetchBookings = async () => {
-          try {
-              const response = await fetch("/api/getDentistBookings", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ dentistEmail: selectedEmail }),
-              });
-  
-              if (response.ok) {
-                  const data = await response.json();
-                  if (data.bookings && data.bookings.length > 0) {
-                      const uniqueBookings = Array.from(
-                          new Map(data.bookings.map((booking: any) => [booking._id, booking])).values()
-                      );
-                      const transformedBookings: Booking[] = uniqueBookings.map((booking: any) => ({
-                          dentistId: booking.dentistId || "",
-                          patientId: booking.patientId || "",
-                          availabilityId: booking.availabilityId || "",
-                          bookingId: booking._id || "",
-                          timeSlot: {
-                              start: new Date(booking.start),
-                              end: new Date(booking.end),
-                          },
-                          status: "booked",
-                          patientName: booking.patientName,
-                          patientEmail: booking.patientEmail,
-                      }));
-                      setBookings(transformedBookings);
-                  } else {
-                      setBookings([]);
-                  }
-              } else {
-                  console.error("Failed to fetch bookings");
-              }
-          } catch (error) {
-              console.error("Error fetching bookings:", error);
+  useEffect(() => {
+    const storedEmail = sessionStorage.getItem("email");
+    if (storedEmail) setSelectedEmail(storedEmail);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEmail) return;
+
+    const fetchBookings = async () => {
+      try {
+        const response = await fetch("/api/getDentistBookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dentistEmail: selectedEmail }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.bookings && data.bookings.length > 0) {
+            const uniqueBookings = Array.from(
+              new Map(data.bookings.map((booking: any) => [booking._id, booking])).values()
+            );
+            const transformedBookings: Booking[] = uniqueBookings.map((booking: any) => ({
+              dentistId: booking.dentistId || "",
+              patientId: booking.patientId || "",
+              availabilityId: booking.availabilityId || "",
+              bookingId: booking._id || "",
+              timeSlot: {
+                start: new Date(booking.start),
+                end: new Date(booking.end),
+              },
+              status: "booked",
+              patientName: booking.patientName,
+              patientEmail: booking.patientEmail,
+            }));
+
+            // Remove duplicate bookings based on time slot
+            const uniqueBookingsList = removeDuplicateBookings(transformedBookings);
+
+            setBookings(uniqueBookingsList);
+          } else {
+            setBookings([]); // No bookings found
           }
-      };
-  
-      fetchBookings();
+        } else {
+          console.error("Failed to fetch bookings");
+        }
+      } catch (error) {
+        console.error("Error fetching bookings:", error);
+      }
+    };
+
+    fetchBookings();
   }, [selectedEmail]);
-  
 
+  // Function to remove duplicate bookings based on time slot
+  const removeDuplicateBookings = (bookings: Booking[]): Booking[] => {
+    const seenTimeSlots = new Set<string>(); // Store unique time slots as strings
+    return bookings.filter((booking) => {
+      const timeSlotKey = `${booking.timeSlot.start.toISOString()}_${booking.timeSlot.end.toISOString()}`;
+      if (seenTimeSlots.has(timeSlotKey)) {
+        return false; // Duplicate detected, exclude from the result
+      }
+      seenTimeSlots.add(timeSlotKey);
+      return true; // Unique time slot, include in the result
+    });
+  };
 
+  // Handling the cancelation
   const handleCancel = (bookingId: string) => {
     const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);
     if (isConfirmed) {
