@@ -24,43 +24,59 @@ export default function Appointment() {
       try {
         const response = await fetch("/api/booking", {
           method: "GET",
-          headers: { "Cache-Control": "no-store" }, // Ensure fresh data
+          headers: { "Cache-Control": "no-store" },
         });
         const data = await response.json();
         console.log("Received availabilities:", data);
-
-        // Transform timeSlots into a date-keyed structure
+    
         if (data && data.timeSlots) {
-          const transformedAvailabilities: Record<string, any> = {};
-          let extractedDentistId: string | null = null;
-
-          data.timeSlots.forEach((slot: any) => {
-            const dateKey = new Date(slot.start).toISOString().split("T")[0]; // Extract YYYY-MM-DD
+          const transformedAvailabilities = {};
+          let extractedDentistId = null;
+    
+          data.timeSlots.forEach((slot) => {
+            // Parse the start and end dates
+            const correctedStartDate = new Date(slot.start);
+            const correctedEndDate = new Date(slot.end);
+    
+            // Adjust for one day earlier (if needed) and one hour later
+            correctedStartDate.setUTCDate(correctedStartDate.getUTCDate() - 1); // Adjust for day offset
+            correctedStartDate.setUTCHours(correctedStartDate.getUTCHours() + 1); // Shift time by 1 hour
+    
+            correctedEndDate.setUTCDate(correctedEndDate.getUTCDate() - 1); // Adjust for day offset
+            correctedEndDate.setUTCHours(correctedEndDate.getUTCHours() + 1); // Shift time by 1 hour
+    
+            const dateKey = correctedStartDate.toISOString().split("T")[0]; // Corrected YYYY-MM-DD
             if (!transformedAvailabilities[dateKey]) {
-              transformedAvailabilities[dateKey] = {
-                timeSlots: [],
-              };
+              transformedAvailabilities[dateKey] = { timeSlots: [] };
             }
             if (!extractedDentistId && slot.dentist) {
               extractedDentistId = slot.dentist;
             }
-            transformedAvailabilities[dateKey].timeSlots.push(slot);
+    
+            // Push the corrected time slot
+            transformedAvailabilities[dateKey].timeSlots.push({
+              ...slot,
+              start: correctedStartDate.toISOString(), // Save the adjusted start time
+              end: correctedEndDate.toISOString(), // Save the adjusted end time
+            });
           });
-
-          setAvailabilities(transformedAvailabilities); // Store transformed data
+    
+          setAvailabilities(transformedAvailabilities);
           setDentistId(extractedDentistId || null);
           setClinicId(data.clinicId);
           console.log("Transformed availabilities:", transformedAvailabilities);
         } else {
-          setAvailabilities(null); // No availabilities found
+          setAvailabilities(null);
           setDentistId(null);
           setClinicId(null);
-          console.error("No availabilities found or invalid response format.");
+          console.log("No availabilities found or invalid response format.");
         }
       } catch (error) {
         console.error("Error fetching availabilities:", error);
       }
     };
+    
+    
 
     fetchAvailabilities();
   }, []); // Only on mount
@@ -182,27 +198,24 @@ export default function Appointment() {
 
 
   // Handle date selection
-  const handleDateSelection = (date: Date) => {
-    const formattedDate = date.toISOString().split("T")[0];
+  const handleDateSelection = (date) => {
+    const formattedDate = date.toISOString().split("T")[0]; // Use the corrected YYYY-MM-DD format
     setSelectedDate(date);
   
     if (availabilities && availabilities[formattedDate]?.timeSlots) {
-      // Format time slots to show in 24-hour format (HH:mm)
-      const formattedTimes = availabilities[formattedDate].timeSlots.map((slot: any) => {
-        const time = new Date(slot.start);
-        let hours = time.getHours();
-        const minutes = time.getMinutes();
-  
-        // Format time to 24-hour format
-        const formattedTime = `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
-        return formattedTime;
+      const formattedTimes = availabilities[formattedDate].timeSlots.map((slot) => {
+        const time = new Date(slot.start); // Slot times are already adjusted
+        const hours = time.getUTCHours();
+        const minutes = time.getUTCMinutes();
+        return `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
       });
       setAvailableTimes(formattedTimes);
     } else {
       setAvailableTimes([]);
     }
     setSelectedTime(null);
-  };  
+  };
+  
 
   // Handle saving the booking
   const handleSave = async () => {

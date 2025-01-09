@@ -78,6 +78,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await consumeQueue(authenticateQueue, (msg) => {
       if (msg) {
         const message = JSON.parse(msg.content.toString());
+
+        // Check if the user already exists
+        if (message.error === "Patient already exists") {
+          console.log("Patient already exists:", email);
+          clearTimeout(timeout);
+          channel.ack(msg);
+          res.status(400).json({ error: "User already exists" });
+          resetState(); // Reset after error
+          return;
+        }
+
         if (message.token) {
           console.log("Token received:", message.token);
           tokenReceived = true;

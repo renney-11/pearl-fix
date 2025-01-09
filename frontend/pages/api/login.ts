@@ -77,14 +77,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               channel.ack(msg); // Acknowledge the message
               res.status(200).json({ token: message.token });
               cleanup(channel, connection);
-            } else if (message.error) {
+            } else if (message.error || message.message) {
+              // Handle errors or `message` field
               responseSent = true;
               clearTimeout(timeout);
               channel.ack(msg); // Acknowledge the message
-              res.status(401).json({ error: message.error });
+              res.status(401).json({ error: message.error || message.message });
               cleanup(channel, connection);
             } else {
               console.error("Unexpected message format:", message);
+              responseSent = true;
+              clearTimeout(timeout);
               channel.ack(msg);
               res.status(500).json({ error: "Unexpected message format." });
               cleanup(channel, connection);

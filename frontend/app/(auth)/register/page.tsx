@@ -29,8 +29,8 @@ export default function SignUp() {
       alert("passwords do not match!");
       return;
     }
-    
-    if (formData.password.length<=7) {
+
+    if (formData.password.length <= 7) {
       alert("password must be at least 8 characters");
       return;
     }
@@ -57,18 +57,18 @@ export default function SignUp() {
           sessionStorage.setItem("authToken", token);
 
           alert("Signup successful!");
-          sessionStorage.setItem("email", formData.email); 
-          router.push("/patient-tool/landing-page"); 
+          sessionStorage.setItem("email", formData.email);
+          router.push("/patient-tool/landing-page");
         } else {
           alert("Signup successful, but no token received.");
         }
       } else {
         const error = await response.json();
-        alert(`error: ${error.error}`);
+        alert(`Error: ${error.error}`);  // You can just show this alert without showing any error on the page.
       }
     } catch (err) {
-      console.error("error submitting form:", err);
-      alert("failed to send signup data.");
+      console.error("Error submitting form:", err);
+      alert("Failed to send signup data.");
     }
   };
 
@@ -85,12 +85,13 @@ export default function SignUp() {
           </a>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {/* Form inputs */}
           <div className="flex justify-between items-center gap-4">
             <input
               id="name"
               type="text"
               name="name"
-              placeholder="full name"
+              placeholder="Full name"
               className="w-full px-4 py-2 rounded border border-main-blue bg-transparent placeholder-main-blue text-main-blue focus:outline-none focus:ring-2 focus:ring-main-blue"
               value={formData.name}
               onChange={handleChange}
@@ -101,7 +102,7 @@ export default function SignUp() {
               id="email"
               type="email"
               name="email"
-              placeholder="email"
+              placeholder="Email"
               className="w-full px-4 py-2 rounded border border-main-blue bg-transparent placeholder-main-blue text-main-blue focus:outline-none focus:ring-2 focus:ring-main-blue"
               value={formData.email}
               onChange={handleChange}
@@ -112,7 +113,7 @@ export default function SignUp() {
               id="password"
               type="password"
               name="password"
-              placeholder="password"
+              placeholder="Password"
               className="w-full px-4 py-2 rounded border border-main-blue bg-transparent placeholder-main-blue text-main-blue focus:outline-none focus:ring-2 focus:ring-main-blue"
               value={formData.password}
               onChange={handleChange}
@@ -123,7 +124,7 @@ export default function SignUp() {
               id="confirmPassword"
               type="password"
               name="confirmPassword"
-              placeholder="confirm password"
+              placeholder="Confirm password"
               className="w-full px-4 py-2 rounded border border-main-blue bg-transparent placeholder-main-blue text-main-blue focus:outline-none focus:ring-2 focus:ring-main-blue"
               value={formData.confirmPassword}
               onChange={handleChange}
@@ -133,13 +134,13 @@ export default function SignUp() {
             type="submit"
             className="py-2 px-8 mt-4 bg-main-blue text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block"
           >
-            sign up
+            Sign up
           </button>
         </form>
         <p className="mt-4 text-center text-main-blue">
-          already have an account?{" "}
+          Already have an account?{" "}
           <a href="/login" className="font-semibold text-blue-900">
-            log in
+            Log in
           </a>
         </p>
       </div>

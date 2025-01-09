@@ -1,11 +1,12 @@
-import dotenv from 'dotenv';  // Ensure dotenv is imported
-dotenv.config();  // Load the .env file
-
+import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+
+// Load environment variables
+dotenv.config();
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
-console.log('MongoDB URI:', MONGODB_URI);  // Should print the actual URI if loaded correctly
+console.log('MongoDB URI:', MONGODB_URI);
 
 const dbConnect = async () => {
   if (!MONGODB_URI) {
@@ -16,11 +17,12 @@ const dbConnect = async () => {
   console.log('Connecting to database...', MONGODB_URI);
 
   try {
+    // Updated connect method without deprecated options
     await mongoose.connect(MONGODB_URI);
     console.log('Database connected');
   } catch (error) {
     console.error('Database connection error:', error);
-    throw error; // Let Jest handle the test failure
+    throw error; // Ensure app fails gracefully
   }
 };
 

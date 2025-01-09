@@ -54,26 +54,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Wait for the response message
     const confirmation = await new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        if (channel) channel.close();
-        if (connection) connection.close();
+        console.error("Timeout waiting for confirmation.");
         reject("Timeout waiting for confirmation.");
       }, 10000); // 10 seconds timeout
-
-      channel?.consume(
+    
+      channel.consume(
         responseQueue,
         (msg: ConsumeMessage | null) => {
-          if (msg !== null) {
-            const message = JSON.parse(msg.content.toString());
-            console.log("Received confirmation:", message);
-
-            // If a confirmation message is received, resolve the promise
-            clearTimeout(timeout);
-            resolve(message.status); // Resolve with the status received from the queue
+          if (msg) {
+            try {
+              const message = JSON.parse(msg.content.toString());
+              console.log("Received confirmation:", message);
+    
+              channel.ack(msg); // Acknowledge message
+              clearTimeout(timeout); // Clear timeout
+              resolve(message.status); // Resolve with status
+            } catch (error) {
+              console.error("Error processing confirmation message:", error);
+              channel.nack(msg, false, false); // Reject message without requeuing
+              reject(error);
+            }
           }
         },
         { noAck: false }
       );
     });
+    
 
     // Respond with the confirmation status
     res.status(200).json({ status: confirmation });
