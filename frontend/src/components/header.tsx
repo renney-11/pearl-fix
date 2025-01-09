@@ -13,7 +13,20 @@ export default function Header() {
   }, []);
 
   // Logout function
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call the purge API
+      const response = await fetch("/api/purge", { method: "POST" });
+      if (response.ok) {
+        console.log("Queues purged successfully.");
+      } else {
+        console.error("Failed to purge queues.");
+      }
+    } catch (error) {
+      console.error("Error calling purge API:", error);
+    }
+
+    // Clear session data
     sessionStorage.removeItem("authToken");
     sessionStorage.removeItem("email");
     sessionStorage.removeItem("clinic");
@@ -26,6 +39,7 @@ export default function Header() {
     setIsAuthenticated(false);
     router.push("/"); // Redirect to home page
   };
+
 
   return (
     <nav className="bg-[rgba(229,243,253,255)] py-6 px-8 shadow-md">

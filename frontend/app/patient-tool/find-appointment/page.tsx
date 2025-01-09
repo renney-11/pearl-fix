@@ -69,7 +69,7 @@ export default function Appointment() {
           setAvailabilities(null);
           setDentistId(null);
           setClinicId(null);
-          console.error("No availabilities found or invalid response format.");
+          console.log("No availabilities found or invalid response format.");
         }
       } catch (error) {
         console.error("Error fetching availabilities:", error);
