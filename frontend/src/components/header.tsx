@@ -12,13 +12,12 @@ export default function Header() {
     setIsAuthenticated(!!token);
   }, []);
 
-  // Logout function
   const handleLogout = async () => {
     try {
       const email = sessionStorage.getItem("email");
+  
       if (email) {
-        // Call the API route to publish the logout message
-        const response = await fetch("/api/logout", {
+        const logoutResponse = await fetch("/api/logout", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -26,7 +25,7 @@ export default function Header() {
           body: JSON.stringify({ email }),
         });
   
-        if (!response.ok) {
+        if (!logoutResponse.ok) {
           console.error("Failed to send logout message");
           return;
         }
@@ -35,15 +34,21 @@ export default function Header() {
         console.error("Email not found in session storage.");
       }
   
-      // Clear session data
+      const purgeResponse = await fetch("/api/purge", { method: "POST" });
+      if (purgeResponse.ok) {
+        console.log("Queues purged successfully.");
+      } else {
+        console.error("Failed to purge queues.");
+      }
+  
       sessionStorage.clear();
   
       setIsAuthenticated(false);
-      router.push("/"); // Redirect to home page
+      router.push("/");
     } catch (error) {
       console.error("Error during logout:", error);
     }
-  };
+  };  
 
 
   return (
