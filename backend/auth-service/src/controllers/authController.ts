@@ -8,6 +8,11 @@ import Dentist, { IDentist } from "../models/Dentist";
 import Patient, { IPatient } from "../models/Patient";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
+import { register as prometheusRegister } from "prom-client";
+import { Counter } from "prom-client";
+
+
+
 
 
 declare global {
@@ -21,6 +26,15 @@ declare global {
   }
 }
 
+const patientLoginCounter = new Counter({
+  name: "patient_logins_total",
+  help: "Total number of successful patient logins",
+});
+
+// Example: Increment the counter
+export const incrementLoginCounter = () => {
+  patientLoginCounter.inc();
+};
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
@@ -137,6 +151,11 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           "pearl-fix/authentication/authenticate",
           JSON.stringify({ token })
         );
+
+        // Increment Prometheus Counter for successful logins
+        patientLoginCounter.inc();
+        console.log(patientLoginCounter);
+
         console.log("Login successful and token published for email:", email);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
@@ -852,6 +871,13 @@ export const register: RequestHandler = async (req, res): Promise<void> => {
 export const login: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to login users" });
 };
+
+// Expose Prometheus metrics
+export const metrics: RequestHandler = async (req, res): Promise<void> => {
+  res.set("Content-Type", prometheusRegister .contentType); // Use 'register' directly
+  res.end(await prometheusRegister .metrics());
+};
+
 
 export const getCurrentUser: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to getCurrent users" });
