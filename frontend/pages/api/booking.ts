@@ -35,7 +35,6 @@ async function fetchAndUpdateAvailability(channel: Channel): Promise<void> {
             console.log("Message received on queue:", data);
 
             if (data.status === "success" && Array.isArray(data.timeSlots)) {
-              clearTimeout(timeout);
               timeSlotsCache = {
                 clinicId: data.clinicId || null,
                 timeSlots: data.timeSlots.map((slot: any) => ({
@@ -45,23 +44,26 @@ async function fetchAndUpdateAvailability(channel: Channel): Promise<void> {
                   dentist: slot.dentist,
                 })),
               };
-
               console.log("Updated timeSlotsCache:", timeSlotsCache);
+
               channel.ack(msg); // Acknowledge the message
+              clearTimeout(timeout); // Clear the timeout
               resolve();
             } else {
-              throw new Error("Invalid message structure.");
+              console.error("Invalid message structure:", data);
+              channel.nack(msg, false, false); // Reject message without requeuing
             }
           } catch (error) {
-            console.error("Error parsing message:", error);
-            reject(error);
+            console.error("Error processing message:", error);
+            channel.nack(msg, false, false); // Reject message without requeuing
           }
         }
       },
-      { noAck: false } // Acknowledge messages manually
+      { noAck: false }
     );
   });
 }
+
 
 // Function to send data to RabbitMQ queue
 async function sendToQueue(channel: Channel, queue: string, data: any) {

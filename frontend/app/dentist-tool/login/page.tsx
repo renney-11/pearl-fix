@@ -16,42 +16,48 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setLoading(true);
-    e.preventDefault();
+    e.preventDefault(); // Prevent form submission before validation
 
-    if (formData.password.length<=7) {
-      alert("your password cannot be less than 8 characters");
+    if (formData.password.length < 8) {
+      alert("Your password cannot be less than 8 characters.");
       return;
     }
+
+    setLoading(true);
 
     try {
       const response = await fetch("/api/dentistLogin", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
       });
-    
+
       if (response.ok) {
         const data = await response.json();
         const token = data.token;
-    
+
         if (token) {
-          sessionStorage.setItem("authToken", token); // Save token securely
-          sessionStorage.setItem("email", formData.email);
+          sessionStorage.setItem("authToken", token);
+
           alert("Login successful!");
+          sessionStorage.setItem("email", formData.email);
           router.push("/dentist-tool/landing-page");
         } else {
           alert("Login successful, but no token received.");
         }
       } else {
         const error = await response.json();
-        alert(`Error: ${error.message || "Login failed."}`);
+        alert(error.error || "Invalid credentials.");
       }
     } catch (err) {
       console.error("Error logging in:", err);
-      alert("Failed to send login data. Please try again.");
-    }
-     finally {
+      alert("Failed to send login data. Please try again later.");
+    } finally {
       setLoading(false); // Reset loading state
     }
   };
@@ -60,11 +66,11 @@ export default function Login() {
     <div className="flex items-center justify-center min-h-screen bg-[rgba(3,0,45)]">
       <div className="w-full max-w-2xl p-8 bg-[rgba(180,195,220,255)] rounded-lg shadow-lg">
         <div className="flex flex-col items-center mb-8">
-            <img
-              src="/assets/logo_vertical.png"
-              alt="Tooth Beacon Logo"
-              className="w-40 h-35 mb-4 mt-1"
-            />
+          <img
+            src="/assets/logo_vertical.png"
+            alt="Tooth Beacon Logo"
+            className="w-40 h-35 mb-4 mt-1"
+          />
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="flex justify-between items-center gap-4">
@@ -92,9 +98,9 @@ export default function Login() {
             type="submit"
             disabled={loading}
             className={`py-2 px-8 mt-4 ${loading ? "bg-gray-400" : "bg-main-blue"} text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block`}
-            >
+          >
             {loading ? "logging in..." : "login"}
-            </button>
+          </button>
         </form>
       </div>
     </div>

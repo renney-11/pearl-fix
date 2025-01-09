@@ -43,15 +43,8 @@ export default function UpcomingAppointments() {
         if (response.ok) {
           const data = await response.json();
 
-          // Validate and transform the response
           if (Array.isArray(data.bookings) && data.bookings.length > 0) {
-            const uniqueBookings = Array.from(
-              new Map(
-                data.bookings.map((booking: any) => [booking._id, booking])
-              ).values()
-            );
-
-            const transformedBookings: Booking[] = uniqueBookings.map((booking: any) => ({
+            const transformedBookings: Booking[] = data.bookings.map((booking: any) => ({
               dentistId: booking.dentistId || "",
               patientId: booking.patientId || "",
               availabilityId: booking.availabilityId || "",
@@ -60,12 +53,15 @@ export default function UpcomingAppointments() {
                 start: new Date(booking.start),
                 end: new Date(booking.end),
               },
-              status: "booked", // Assuming all fetched bookings are "booked"
+              status: "booked",
               clinicName: booking.clinicName || "Unknown Clinic",
               clinicAddress: booking.clinicAddress || "Unknown Address",
             }));
 
-            setBookings(transformedBookings);
+            // Remove duplicate bookings based on time slot
+            const uniqueBookings = removeDuplicateBookings(transformedBookings);
+
+            setBookings(uniqueBookings);
           } else {
             setBookings([]); // No bookings found
           }
@@ -81,6 +77,20 @@ export default function UpcomingAppointments() {
 
     fetchBookings();
   }, [selectedEmail]);
+
+
+  // Function to remove duplicate bookings based on time slot
+  const removeDuplicateBookings = (bookings: Booking[]): Booking[] => {
+    const seenTimeSlots = new Set<string>(); // Store unique time slots as strings
+    return bookings.filter((booking) => {
+      const timeSlotKey = `${booking.timeSlot.start.toISOString()}_${booking.timeSlot.end.toISOString()}`;
+      if (seenTimeSlots.has(timeSlotKey)) {
+        return false; // Duplicate detected, exclude from the result
+      }
+      seenTimeSlots.add(timeSlotKey);
+      return true; // Unique time slot, include in the result
+    });
+  };
 
   const handleCancel = (bookingId: string) => {
     const isConfirmed = window.confirm(`Are you sure you want to cancel this appointment?`);

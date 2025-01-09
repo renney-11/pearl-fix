@@ -11,6 +11,8 @@ interface Booking {
     };
     status: "available" | "booked";
     clinicId: string; // Reference to the Clinic (optional)
+    patientName: string;
+    patientEmail: string;
   }
   
 
@@ -56,6 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           (msg: ConsumeMessage | null) => {
             if (msg) {
               const message = JSON.parse(msg.content.toString());
+              console.log(message);
               channel.ack(msg);
               clearTimeout(timeout);
 
