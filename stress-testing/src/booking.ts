@@ -42,6 +42,16 @@ function generateRandomAddress() {
   return `${randomNumber} ${randomStreetName} ${randomStreetType}`;
 }
 
+
+function getClinic(address) {
+  console.log(`Fetching clinic for address: ${address}`);
+  
+  const clinicId = generateRandomId(); 
+  console.log(`Fetched clinic ID for address "${address}": ${clinicId}`);
+  
+  return clinicId;
+}
+
 // Function to create availability for a dentist in the clinic
 function createAvailability(dentistId, clinicId, availabilityId) {
   const timeSlotStart = new Date();
@@ -221,7 +231,8 @@ export default function () {
     return;
   }
 
-  const clinicId = generateRandomId();
+  const clinicId = getClinic(clinicAddress);
+
   const dentistId = generateRandomId();
   const availabilityId = generateRandomId(); 
 
