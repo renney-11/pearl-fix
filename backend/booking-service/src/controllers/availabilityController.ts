@@ -2,6 +2,28 @@ import { RequestHandler } from "express";
 import Availability from "../models/Availability";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import mongoose from "mongoose";
+import { initializeAvailabilityGauge } from "../metrics/availabilityMetrics";
+import { incrementAvailability } from "../metrics/availabilityMetrics";
+import { register as prometheusRegister } from "prom-client";
+
+(async () => {
+  try {
+    // Initialize gauge on service startup
+    await initializeAvailabilityGauge();
+  } catch (error) {
+    console.error("Error initializing metrics:", error);
+  }
+})();
+
+export const metrics: RequestHandler = async (req, res): Promise<void> => {
+  try {
+    res.set("Content-Type", prometheusRegister.contentType);
+    res.end(await prometheusRegister.metrics());
+  } catch (error) {
+    console.error("Error serving Prometheus metrics:", error);
+    res.status(500).json({ message: "Error serving Prometheus metrics." });
+  }
+};
 
 // Initialize the MQTT handler
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
@@ -263,6 +285,10 @@ const handleClinicDetails = async (mqttHandler, timeSlots, dentistId) => {
       });
 
       await availability.save();
+
+      incrementAvailability(timeSlots.length);
+
+
       console.log("Availability created:", availability);
 
       await mqttHandler.publish(
