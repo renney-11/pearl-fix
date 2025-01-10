@@ -95,7 +95,14 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
 
   try {
     // Check if clinic already exists
-    await mqttHandler.connect();
+    if (!mqttHandler.isConnected()) {
+      console.log("MQTT handler is not connected, connecting...");
+      await mqttHandler.connect(); // Ensure the connection is established only once
+      console.log("MQTT connected successfully");
+    } else {
+      console.log("MQTT handler already connected");
+    }
+    
     const clinicExists = await Clinic.findOne({ address });
     if (clinicExists) {
       res.status(400).json({ message: "Clinic with this address already exists" });
@@ -173,18 +180,11 @@ export const createClinic: RequestHandler = async (req, res): Promise<void> => {
       },
     });
     console.log(newClinic);
-
-    await mqttHandler.publish(
-      "pearl-fix/clinic/create/id",
-      JSON.stringify({ id: newClinic.id, emails: dentists })
-    );
-    console.log(`Published successful message to "pearl-fix/clinic/create/id": ${newClinic.id} with emails: ${dentists}`);
     
+
   } catch (error) {
     console.error("Error during clinic creation:", error);
     res.status(500).json({ message: "Server error" });
-  } finally {
-    await mqttHandler.close();
   }
 };
 
