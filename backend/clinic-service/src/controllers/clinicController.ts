@@ -49,6 +49,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
     
       try {
         const { dentistId } = JSON.parse(msg.toString());
+        console.log(dentistId);
         
         if (!dentistId) {
           console.error("Missing dentistId in the message");
