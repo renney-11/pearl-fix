@@ -41,8 +41,16 @@ export default function Header() {
         console.error("Failed to purge queues.");
       }
   
-      sessionStorage.clear();
-  
+      // Clear session data
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("email");
+      sessionStorage.removeItem("clinic");
+      sessionStorage.removeItem("clinicAddress");
+      sessionStorage.removeItem("clinicName");
+      sessionStorage.removeItem("dentist");
+      sessionStorage.removeItem("selectedTime");
+      sessionStorage.removeItem("selectedDate");
+        
       setIsAuthenticated(false);
       router.push("/");
     } catch (error) {
