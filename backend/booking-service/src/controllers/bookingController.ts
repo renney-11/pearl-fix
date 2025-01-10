@@ -6,7 +6,18 @@ import mongoose from "mongoose";
 import sendEmailConfirmation from '../email/patient-books';
 import sendCancellationEmail from '../email/patient-cancells';
 import sendCancellationEmailByDentist from '../email/dentist-cancells';
+import { initializeAvailabilityGauge } from "../metrics/availabilityMetrics";
+import { decrementAvailability } from "../metrics/availabilityMetrics";
+import { incrementAvailability } from "../metrics/availabilityMetrics";
 
+(async () => {
+  try {
+    // Initialize gauge on service startup
+    await initializeAvailabilityGauge();
+  } catch (error) {
+    console.error("Error initializing metrics:", error);
+  }
+})();
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
@@ -507,6 +518,8 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
                     message: "Booking created successfully",
                     booking,
                   });
+
+                  decrementAvailability(1); // Decrease by 1 for the booking
               
                   /*await mqttHandler.publish(
                     "pearl-fix/booking/update/dentist",
@@ -1265,6 +1278,8 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
       message: "Booking canceled successfully.",
     });
 
+    incrementAvailability(1); // Increase by 1 for the cancellation
+
     // Publish success status to the topic 'pearl-fix/booking/patient/cancel/authenticate'
     await mqttHandler.publish(
       "pearl-fix/booking/patient/cancel/authenticate",
@@ -1649,6 +1664,8 @@ export const cancelBookingByDentist: RequestHandler = async (req, res): Promise<
       })
     );
     console.log(`Published patient and canceled booking to "pearl-fix/booking/update/patient"`);
+
+    incrementAvailability(1); // Increase by 1 for the cancellation
 
   } catch (error) {
     console.error("Error in cancelBookingByDentist:", error);
