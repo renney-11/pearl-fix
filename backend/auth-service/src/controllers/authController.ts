@@ -216,6 +216,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           "pearl-fix/authentication/dentist/authenticate",
           JSON.stringify({ token })
         );
+        incrementLoginGauge(); // Increment the Gauge
         console.log("Login successful and token published for email:", email);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);

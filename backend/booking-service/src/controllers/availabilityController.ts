@@ -2,6 +2,20 @@ import { RequestHandler } from "express";
 import Availability from "../models/Availability";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import mongoose from "mongoose";
+import { register as prometheusRegister } from "prom-client";
+import { Gauge } from "prom-client";
+
+const availabilityGauge = new Gauge({
+  name: "availability_gauge",
+  help: "Number of availabilities",
+});
+
+// Increment on availability creation
+export const incrementAvailability = (incrementBy: number = 1) => {
+  availabilityGauge.inc(incrementBy);
+};
+
+
 
 // Initialize the MQTT handler
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
@@ -202,6 +216,8 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
                     await availability.save();
 
+                    incrementAvailability(formattedTimeSlots.length);
+
                     console.log("Availability created:", availability);
 
                     // Publish success confirmation
@@ -351,7 +367,7 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
   } 
 };
 
-export const getAvailability: RequestHandler = async (req, res): Promise<void> => {
+/*export const getAvailability: RequestHandler = async (req, res): Promise<void> => {
   // pearl-fix/availability/get/clinic-id
   const { dentistId } = req.params;
 
@@ -368,7 +384,7 @@ export const getAvailability: RequestHandler = async (req, res): Promise<void> =
     console.error("Error fetching availability:", error);
     res.status(500).json({ message: "Server error", error });
   }
-};
+};*/
 
 
 
@@ -407,6 +423,12 @@ export const getAvailabilitiesForClinic: RequestHandler = async (req, res): Prom
     console.error("Error fetching availabilities for clinic:", error);
     res.status(500).json({ message: "Server error", error });
   }
+};
+
+// Expose Prometheus metrics
+export const metrics: RequestHandler = async (req, res): Promise<void> => {
+  res.set("Content-Type", prometheusRegister.contentType);
+  res.end(await prometheusRegister.metrics());
 };
 
 export const removeAvailability: RequestHandler = async (req, res): Promise<void> => {
