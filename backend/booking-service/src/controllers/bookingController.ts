@@ -10,6 +10,14 @@ import { initializeAvailabilityGauge } from "../metrics/availabilityMetrics";
 import { decrementAvailability } from "../metrics/availabilityMetrics";
 import { incrementAvailability } from "../metrics/availabilityMetrics";
 
+const MQTT_TOPICS = {
+  PATIENT_EMAIL: "pearl-fix/booking/create/patient/email",
+  PATIENT_DATA: "pearl-fix/booking/create/patient",
+  DENTIST_EMAIL_REQUEST: "pearl-fix/booking/find/dentist/email",
+  DENTIST_EMAIL: "pearl-fix/booking/found/dentist/email",
+  AUTHENTICATE: "pearl-fix/booking/create/authenticate"
+};
+
 (async () => {
   try {
     // Initialize gauge on service startup
@@ -48,12 +56,11 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         }
 
         await mqttHandler.publish(
-          "pearl-fix/booking/create/patient/email",
+          "pearl-fix/booking/create/patient/email/test",
           JSON.stringify({ email: patientEmail })
         );
         console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
-
-        await mqttHandler.subscribe("pearl-fix/booking/create/patient", async (msg) => {
+        await mqttHandler.subscribe("pearl-fix/booking/create/patient/test", async (msg) => {
           console.log("Received message on 'pearl-fix/booking/create/patient':", msg.toString());
 
           try {
@@ -367,12 +374,12 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
         }
 
         await mqttHandler.publish(
-          "pearl-fix/booking/create/patient/email",
+          "pearl-fix/booking/create/patient/email/test",
           JSON.stringify({ email: patientEmail })
         );
         console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
     
-        await mqttHandler.subscribe("pearl-fix/booking/create/patient", async (msg) => {
+        await mqttHandler.subscribe("pearl-fix/booking/create/patient/test", async (msg) => {
           try{
             const message = JSON.parse(msg.toString());
             console.log("Message received on 'pearl-fix/booking/create/patient':", message);
@@ -630,115 +637,121 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 }; */
 
 
-// FIX BOOKNG CREATION
 
-// Patient creates a booking (books a time slot)
-// Patient creates a booking (books a time slot)
+
+
+// In-memory cache to store patient and dentist data
+const cache = {
+  patient: null as any,
+  dentist: null as any,
+};
+
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
   const { dentistId, patientEmail, timeSlot } = req.body;
 
   try {
     await mqttHandler.connect();
 
-    if (!dentistId || !patientEmail || !timeSlot?.start || !timeSlot?.end) {
-      res.status(400).json({ message: "Missing required fields" });
-      
-      // Publish failure message to the topic
-      await mqttHandler.publish(
-        "pearl-fix/booking/create/authenticate",
-        JSON.stringify({ success: false, message: "Missing required fields" })
+    // Check if we already have the patient and dentist data in the cache
+    let cachedDentist = cache.dentist;
+    let cachedPatient = cache.patient;
+
+    if (!cachedDentist || !cachedPatient) {
+      // If no cached data, proceed to fetch it via MQTT
+
+      if (!dentistId || !patientEmail || !timeSlot?.start || !timeSlot?.end) {
+        res.status(400).json({ message: "Missing required fields" });
+        await mqttHandler.publishWithIsolation(
+          "pearl-fix/booking/create/authenticate",
+          JSON.stringify({ success: false, message: "Missing required fields" })
+        );
+        return;
+      }
+
+      // Publish the patient email to MQTT
+      await mqttHandler.publishWithIsolation(
+        "pearl-fix/booking/create/patient/email",
+        JSON.stringify({ email: patientEmail })
       );
-      return;
-    }
+      console.log(`Published patient email: ${patientEmail}`);
 
-    await mqttHandler.publish(
-      "pearl-fix/booking/create/patient/email",
-      JSON.stringify({ email: patientEmail })
-    );
-    console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
-
-    const receivedPatient: any = await new Promise((resolve, reject) => {
-      let patientData: any = null;
-      const timeout = setTimeout(() => {
-        if (patientData) {
-          resolve(patientData);
-        } else {
-          reject(new Error("No patient received from MQTT subscription"));
-        }
-      }, 30000);
-
-      mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
-        try {
-          const message = JSON.parse(msg.toString());
-          console.log("Message received on 'pearl-fix/booking/create/patient':", message);
-
-          if (message.patient) {
-            patientData = message.patient;
-            clearTimeout(timeout);
-            resolve(patientData);
+      // Wait for patient data
+      let receivedPatient: any = null;
+      await new Promise((resolve, reject) => {
+        mqttHandler.subscribeWithIsolation("pearl-fix/booking/create/patient", (msg, channel) => {
+          try {
+            const message = JSON.parse(msg.content.toString());
+            if (message.patient) {
+              receivedPatient = message.patient;
+              console.log("Patient data received:", receivedPatient);
+              cache.patient = receivedPatient; // Cache patient data
+              resolve(true); // Resolve when patient data is received
+            }
+          } catch (error) {
+            console.error("Error processing patient message:", error);
+          } finally {
+            channel.ack(msg); // Acknowledge the message
           }
-        } catch (error) {
-          console.error("Error processing patient message:", error);
-        }
+        });
+
+        // Timeout for waiting for patient data
+        setTimeout(() => reject(new Error("Timeout waiting for patient data")), 10000);
       });
-    });
 
-    if (!receivedPatient?._id) {
-      res.status(404).json({ message: "Patient not found from MQTT data." });
-      
-      // Publish failure message to the topic
-      await mqttHandler.publish(
-        "pearl-fix/booking/create/authenticate",
-        JSON.stringify({ success: false, message: "Patient not found from MQTT data." })
-      );
-      return;
-    }
+      if (!receivedPatient?._id) {
+        res.status(404).json({ message: "Patient not found from MQTT data." });
+        await mqttHandler.publishWithIsolation(
+          "pearl-fix/booking/create/authenticate",
+          JSON.stringify({ success: false, message: "Patient not found from MQTT data." })
+        );
+        return;
+      }
 
-    const patientIdFromMQTT = receivedPatient._id;
-
-    await mqttHandler.publish("pearl-fix/booking/find/dentist/email", JSON.stringify({ dentistId }));
-
-    const dentistEmail: string = await new Promise((resolve, reject) => {
-      let dentistEmailData: string | null = null;
-      const timeout = setTimeout(() => {
-        if (dentistEmailData) {
-          resolve(dentistEmailData);
-        } else {
-          reject(new Error("No dentist email received from MQTT subscription"));
-        }
-      }, 10000);
-
-      mqttHandler.subscribe("pearl-fix/booking/found/dentist/email", (msg) => {
-        try {
-          const message = JSON.parse(msg.toString());
-          console.log("Message received on 'pearl-fix/booking/found/dentist/email':", message);
-
-          if (message.dentistEmail) {
-            dentistEmailData = message.dentistEmail;
-            clearTimeout(timeout);
-            resolve(dentistEmailData);
+      // After receiving patient data, subscribe for the dentist email
+      let receivedDentistEmail: string | null = null;
+      await new Promise((resolve, reject) => {
+        mqttHandler.subscribeWithIsolation("pearl-fix/booking/found/dentist/email", (msg, channel) => {
+          try {
+            const message = JSON.parse(msg.content.toString());
+            if (message.dentistEmail) {
+              receivedDentistEmail = message.dentistEmail;
+              console.log("Dentist email received:", receivedDentistEmail);
+              cache.dentist = { email: receivedDentistEmail }; // Cache dentist email
+              resolve(true); // Resolve when dentist email is received
+            }
+          } catch (error) {
+            console.error("Error processing dentist email message:", error);
+          } finally {
+            channel.ack(msg); // Acknowledge the message
           }
-        } catch (error) {
-          console.error("Error processing dentist email message:", error);
-          reject(error);
-        }
-      });
-    });
+        });
 
-    if (!dentistEmail) {
-      res.status(404).json({ message: "Dentist email not found." });
-      
-      // Publish failure message to the topic
-      await mqttHandler.publish(
-        "pearl-fix/booking/create/authenticate",
-        JSON.stringify({ success: false, message: "Dentist email not found." })
-      );
-      return;
+        // Publish to get the dentist email based on dentistId
+        mqttHandler.publishWithIsolation("pearl-fix/booking/find/dentist/email", JSON.stringify({ dentistId }));
+
+        // Timeout for dentist email data
+        setTimeout(() => reject(new Error("Timeout waiting for dentist email")), 10000);
+      });
+
+      if (!receivedDentistEmail) {
+        res.status(404).json({ message: "Dentist email not found." });
+        await mqttHandler.publishWithIsolation(
+          "pearl-fix/booking/create/authenticate",
+          JSON.stringify({ success: false, message: "Dentist email not found." })
+        );
+        return;
+      }
+
+      console.log("Using cached dentist email:", receivedDentistEmail);
+    } else {
+      // If the data is cached, just use it directly
+      console.log("Using cached patient data:", cachedPatient);
+      console.log("Using cached dentist data:", cachedDentist);
     }
 
-    console.log("Received dentist email:", dentistEmail);
+    console.log("Availability given:", timeSlot);
 
-    // Directly check if availability exists for the selected dentist and time slot
+    // Proceed with the booking creation logic
     const availability = await Availability.findOne({
       dentist: dentistId,
       "timeSlots.start": { $lte: new Date(timeSlot.start) }, // Check if timeSlot start is before or equal
@@ -748,9 +761,7 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
 
     if (!availability) {
       res.status(400).json({ message: "The selected time slot is unavailable." });
-      
-      // Publish failure message to the topic
-      await mqttHandler.publish(
+      await mqttHandler.publishWithIsolation(
         "pearl-fix/booking/create/authenticate",
         JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
       );
@@ -766,19 +777,17 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
 
     if (slotIndex === -1) {
       res.status(400).json({ message: "The selected time slot is unavailable." });
-      
-      // Publish failure message to the topic
-      await mqttHandler.publish(
+      await mqttHandler.publishWithIsolation(
         "pearl-fix/booking/create/authenticate",
         JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
       );
       return;
     }
 
-    // Create booking
+    // Create the booking
     const booking = new Booking({
       dentistId,
-      patientId: patientIdFromMQTT,
+      patientId: cachedPatient._id, // Use cached patient ID
       clinicId: availability.clinicId, // Assuming clinicId is available in Availability schema
       availabilityId: availability._id,
       timeSlot,
@@ -786,7 +795,6 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     });
 
     await booking.save();
-
     availability.timeSlots[slotIndex].status = "booked";
     await availability.save();
 
@@ -796,27 +804,25 @@ export const createBooking: RequestHandler = async (req, res): Promise<void> => 
     });
 
     // Send the email confirmation to the patient
-    const patientName = receivedPatient.name; // Assuming the patient name is available
-    await sendEmailConfirmation(patientEmail, receivedPatient.name, timeSlot, "CLinic", "clinicAddress", dentistEmail);
-
+    await sendEmailConfirmation(patientEmail, cachedPatient.name, timeSlot, "CLinic", "clinicAddress", cache.dentist.email);
     console.log(`Booking confirmation email sent to: ${patientEmail}`);
 
     // Publish success message to the topic
-    await mqttHandler.publish(
+    await mqttHandler.publishWithIsolation(
       "pearl-fix/booking/create/authenticate",
       JSON.stringify({ success: true, message: "Booking created successfully." })
     );
   } catch (error) {
     console.error("Error creating booking:", error);
     res.status(500).json({ message: "Server error" });
-    
-    // Publish failure message to the topic
-    await mqttHandler.publish(
+    await mqttHandler.publishWithIsolation(
       "pearl-fix/booking/create/authenticate",
       JSON.stringify({ success: false, message: "Server error" })
     );
   }
 };
+
+
 
 
 
@@ -954,13 +960,13 @@ export const getBookingsForPatient: RequestHandler = async (req, res) => {
 
     // Publish patient email to MQTT
     await mqttHandler.publish(
-      "pearl-fix/booking/create/patient/email",
+      "pearl-fix/booking/create/patient/email/test",
       JSON.stringify({ email: patientEmail })
     );
     console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
 
     const receivedPatient: any = await new Promise((resolve, reject) => {
-      mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
+      mqttHandler.subscribe("pearl-fix/booking/create/patient/test", (msg) => {
         console.log("Received message on 'pearl-fix/booking/create/patient':", msg.toString());
   
         try {
@@ -1142,7 +1148,7 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
 
     // Publish patient email to retrieve patient ID
     await mqttHandler.publish(
-      "pearl-fix/booking/create/patient/email",
+      "pearl-fix/booking/create/patient/email/test",
       JSON.stringify({ email: patientEmail })
     );
     console.log(`Published patient email to "pearl-fix/booking/create/patient/email": ${patientEmail}`);
@@ -1158,7 +1164,7 @@ export const cancelBookingByPatient: RequestHandler = async (req, res): Promise<
         }
       }, 30000);
 
-      mqttHandler.subscribe("pearl-fix/booking/create/patient", (msg) => {
+      mqttHandler.subscribe("pearl-fix/booking/create/patient/test", (msg) => {
         try {
           const message = JSON.parse(msg.toString());
           console.log("Message received on 'pearl-fix/booking/create/patient':", message);
