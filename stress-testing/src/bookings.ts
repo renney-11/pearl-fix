@@ -23,8 +23,8 @@ const dentists = [
 
 // Timeslot data
 const timeSlot = {
-  start: "2025-01-15T10:00:00Z",
-  end: "2025-01-15T11:00:00Z",
+  start: "2025-01-02T16:00:00Z",
+  end: "2025-01-02T17:00:00Z",
 };
 
 // Clinic data
@@ -43,11 +43,13 @@ const clinic = {
 // Test options
 export let options = {
   stages: [
-    { duration: '1m', target: 10 }, // Ramp-up to 10 users over 1 minute
-    { duration: '5m', target: 10 }, // Stay at 10 users for 5 minutes
+    { duration: '1m', target: 2 }, // Ramp-up to 10 users over 1 minute
+    { duration: '30m', target: 10 }, // Stay at 10 users for 5 minutes
     { duration: '1m', target: 0 },  // Ramp-down to 0 users over 1 minute
   ],
 };
+
+
 
 export default function () {
   // Prepare booking data
