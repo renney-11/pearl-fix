@@ -30,13 +30,6 @@ const PatientLandingPage: React.FC = () => {
       description: "Keep track of your upcoming and past appointments.",
       link: "/patient-tool/monitor-appointments",
     },
-    {
-      id: 3,
-      icon: faClock,
-      title: "Emergency Booking",
-      description: "Access urgent care when you need it the most.",
-      link: "/patient-tool/emergency-booking",
-    },
   ];
 
   const [hovered, setHovered] = useState<number | null>(null);
