@@ -248,47 +248,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       }
     });
     
-
-    // Create booking with patient
-    await mqttHandler.subscribe("pearl-fix/booking/create/patient/email", async (msg) => {
-      try {
-        console.log("Message received from booking-service:", msg);
-        let parsedMessage;
-        try {
-          parsedMessage = JSON.parse(msg);
-        } catch (err) {
-          console.error("Failed to parse create booking message:", err);
-          return;
-        }
-
-        const { email } = parsedMessage;
-
-        if (!email) {
-          console.error("Missing patient email in create booking request");
-          await mqttHandler.publish(
-            "pearl-fix/booking/create/patient",
-            JSON.stringify({ message: "Missing email" })
-          );
-          return;
-        }
-        let patient: IPatient | null = await Patient.findOne({ email });
-        if (!patient) {
-          await mqttHandler.publish(
-            "pearl-fix/booking/create/patient",
-            JSON.stringify({ error: "Patient with this email does not exist." })
-          );
-          return;
-        }
-        await mqttHandler.publish(
-          "pearl-fix/booking/create/patient",
-          JSON.stringify({ patient })
-        );
-        console.log("Patient found successfully", patient);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error("Error processing find patient message:", errorMessage);
-      }
-    });
+    
     await mqttHandler.subscribe("pearl-fix/booking/update/patient", handleBookingUpdatePatientMessage);
 
     await mqttHandler.subscribe("pearl-fix/booking/update/dentist", handleBookingUpdateDentistMessage);
@@ -500,6 +460,36 @@ mqttHandler.subscribe("pearl-fix/booking/find/dentist-id", async (msg) => {
     console.error("Error processing dentist email:", error);
   }
 });
+
+mqttHandler.subscribeWithIsolation("pearl-fix/booking/find/dentist/email", async (msg, channel) => {
+  try {
+    const { dentistId } = JSON.parse(msg.content.toString());
+    if (!dentistId) {
+      console.error("Received dentistId is missing.");
+      channel.ack(msg); // Acknowledge even if invalid
+      return;
+    }
+    const dentist = await Dentist.findById(dentistId).select("email");
+    if (!dentist) {
+      console.error("Dentist not found in the database.");
+      channel.ack(msg); // Acknowledge even if not found
+      return;
+    }
+    const dentistEmail = dentist.email;
+    console.log("Found dentistEmail:", dentistEmail);
+    await mqttHandler.publish(
+      "pearl-fix/booking/found/dentist/email",
+      JSON.stringify({ dentistEmail })
+    );
+    console.log(`Published dentistEmail to "pearl-fix/booking/found/dentist/email": ${dentistEmail}`);
+    channel.ack(msg); // Acknowledge after success
+  } catch (error) {
+    console.error("Error processing dentist email:", error);
+    channel.ack(msg); // Always acknowledge to avoid retries
+  }
+});
+
+
 
     // Subscribe to the topic where the booking service requests to find a dentist for a clinic
 await mqttHandler.subscribe("pearl-fix/booking/find/dentist/for-clinic", async (msg) => {
@@ -734,6 +724,47 @@ await mqttHandler.subscribe("pearl-fix/booking/canceled", async (msg) => {
   }
   
   
+})();
+
+(async () => {
+  try {
+    await mqttHandler.connect();
+
+    // Create booking with patient
+    await mqttHandler.subscribeWithIsolation("pearl-fix/booking/create/patient/email", async (msg, channel) => {
+      try {
+        console.log("Message received:", msg.content.toString());
+        const parsedMessage = JSON.parse(msg.content.toString());
+        const { email } = parsedMessage;
+
+        if (!email) {
+          console.error("Missing patient email");
+        } else {
+          const patient = await Patient.findOne({ email });
+          if (patient) {
+            await mqttHandler.publishWithIsolation(
+              "pearl-fix/booking/create/patient",
+              JSON.stringify({ patient })
+            );
+            console.log("Published patient successfully");
+          } else {
+            console.error("Patient not found");
+          }
+        }
+      } catch (err) {
+        console.error("Error processing message:", err);
+      } finally {
+        try {
+          channel.ack(msg); // Acknowledge message to prevent re-delivery
+          console.log("Acknowledged message");
+        } catch (ackError) {
+          console.error("Error acknowledging message:", ackError);
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Error during MQTTHandler initialization:", err);
+  }
 })();
 
     // Update the dentist's availability and bookings fields
