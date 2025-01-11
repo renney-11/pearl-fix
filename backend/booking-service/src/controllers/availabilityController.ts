@@ -307,9 +307,11 @@ const handleClinicDetails = async (mqttHandler, timeSlots, dentistId) => {
 };
 
 
+// In-memory cache to store dentist data
+const cache = {
+  dentist: null as any, // Will hold dentist data
+};
 
-
-// CREATE AVAILABILITY METHOD POSTMAN
 export const createAvailability: RequestHandler = async (req, res): Promise<void> => {
   const { dentist, workDays, timeSlots, date, clinicId } = req.body;
 
@@ -318,47 +320,55 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
 
     // Check if a valid dentist email or ID is provided
     if (!dentist || typeof dentist !== "string" || dentist.trim() === "") {
-      console.error("No valid dentist provided.");
       res.status(400).json({ message: "No valid dentist provided in request." });
       return;
     }
 
-    // Publish dentist email or ID to the topic
-    await mqttHandler.publish(
-      "pearl-fix/availability/create/email",
-      JSON.stringify({ email: dentist })
-    );
-    console.log(`Published successful message to "pearl-fix/availability/create/email": ${dentist}`);
+    // Check if dentist data is already cached
+    let cachedDentist = cache.dentist;
 
-    // Collect dentist data from the subscription
-    const receivedDentist: any = await new Promise((resolve, reject) => {
-      let dentistData: any = null;
-      const timeout = setTimeout(() => {
-        reject(new Error("No dentist received from MQTT subscription"));
-      }, 10000);
+    if (!cachedDentist) {
+      // Publish dentist email or ID to the topic
+      await mqttHandler.publishWithIsolation(
+        "pearl-fix/availability/create/email",
+        JSON.stringify({ email: dentist })
+      );
 
-      mqttHandler.subscribe("pearl-fix/availability/create/dentist", (msg) => {
-        try {
-          const message = JSON.parse(msg.toString());
-          console.log("Message received on 'pearl-fix/availability/create/dentist':", message);
+      // Collect dentist data from the subscription with isolation
+      const receivedDentist: any = await new Promise((resolve, reject) => {
+        let dentistData: any = null;
+        const timeout = setTimeout(() => {
+          reject(new Error("No dentist received from MQTT subscription"));
+        }, 10000);
 
-          if (message.dentist) {
-            dentistData = message.dentist;
-            clearTimeout(timeout); // Clear timeout as we got the data
-            resolve(dentistData);
+        mqttHandler.subscribeWithIsolation("pearl-fix/availability/create/dentist", (msg, channel) => {
+          try {
+            const message = JSON.parse(msg.content.toString());
+            if (message.dentist) {
+              dentistData = message.dentist;
+              cache.dentist = dentistData; // Cache the dentist data
+              clearTimeout(timeout); // Clear timeout as we got the data
+              resolve(dentistData);
+            }
+          } catch (error) {
+            console.error("Error processing dentist message:", error);
+          } finally {
+            channel.ack(msg); // Acknowledge the message
           }
-        } catch (error) {
-          console.error("Error processing dentist message:", error);
-        }
+        });
       });
-    });
 
-    if (!receivedDentist?._id) {
-      res.status(404).json({ message: "Dentist not found from MQTT data." });
-      return;
+      if (!receivedDentist?._id) {
+        res.status(404).json({ message: "Dentist not found from MQTT data." });
+        return;
+      }
+
+      cachedDentist = receivedDentist; // Update cached data
+    } else {
+      console.log("Using cached dentist data:", cachedDentist);
     }
 
-    const dentistId = receivedDentist._id;
+    const dentistId = cachedDentist._id;
 
     // Use the provided date for time slots
     const baseDate = new Date(date);
@@ -368,13 +378,11 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
       const startTimeParts = slot.start.split(":");
       const endTimeParts = slot.end.split(":");
 
-      // Set the full date with start and end times
-      const startDate = new Date(
-        baseDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0)
-      );
-      const endDate = new Date(
-        baseDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0)
-      );
+      const startDate = new Date(baseDate);
+      startDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0);
+      
+      const endDate = new Date(baseDate);
+      endDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0);
 
       return {
         start: startDate,
@@ -388,7 +396,7 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
       dentist: dentistId,
       workDays,
       timeSlots: formattedTimeSlots,
-      clinicId,  // Add clinicId to the availability document
+      clinicId,
     });
 
     // Save availability document to DB
@@ -401,22 +409,21 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
         dentist: dentistId,
         workDays: availability.workDays,
         timeSlots: formattedTimeSlots,
-        clinicId,  // Return the clinicId in the response
+        clinicId,
       },
     });
-    console.log("Availability created:", availability);
 
-    await mqttHandler.publish(
+    await mqttHandler.publishWithIsolation(
       "pearl-fix/availability/create/id",
       JSON.stringify({ id: availability.id, email: dentist })
     );
-    console.log(`Published availability ID: ${availability.id} to 'pearl-fix/availability/create/id'.`);
 
   } catch (error) {
     console.error("Error creating availability:", error);
     res.status(500).json({ message: "Server error." });
   }
 };
+
 
 export const createAvailabilities: RequestHandler = async (req, res): Promise<void> => {
   try {
