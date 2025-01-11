@@ -570,7 +570,7 @@ interface DentistRequest {
   reject: (error: Error) => void;
 }
 
-interface Cache {
+/*interface Cache {
   patient: any | null;
   dentist: any | null;
 }
@@ -578,7 +578,7 @@ interface Cache {
 const cache: Cache = {
   patient: null,
   dentist: null,
-};
+}; */
 
 const patientQueue: PatientRequest[] = [];
 const dentistQueue: DentistRequest[] = [];
@@ -641,93 +641,107 @@ const requestDentistData = (dentistId: string): Promise<any> => {
   });
 };
 
+// Outside the function scope
+const patientCache = new Map<string, any>();
+const dentistCache = new Map<string, any>();
+
 export const createBooking: RequestHandler = async (req, res): Promise<void> => {
-  const { dentistId, patientEmail, timeSlot } = req.body;
+    const { dentistId, patientEmail, timeSlot } = req.body;
 
-  try {
-    await mqttHandler.connect();
+    try {
+        if (!dentistId || !patientEmail || !timeSlot?.start || !timeSlot?.end) {
+            res.status(400).json({ message: "Missing required fields" });
+            mqttHandler.publishWithIsolation(
+            "pearl-fix/booking/create/authenticate",
+            JSON.stringify({ success: false, message: "Missing required fields" })
+        );
+        return;
+        }
 
-    if (!dentistId || !patientEmail || !timeSlot?.start || !timeSlot?.end) {
-      res.status(400).json({ message: "Missing required fields" });
-      await mqttHandler.publishWithIsolation(
-        "pearl-fix/booking/create/authenticate",
-        JSON.stringify({ success: false, message: "Missing required fields" })
-      );
-      return;
-    }
+        let patientData = patientCache.get(patientEmail);
+        if(!patientData){
+            patientData = await requestPatientData(patientEmail);
+            patientCache.set(patientEmail, patientData);
+        }
+        
+        let dentistData = dentistCache.get(dentistId);
+        if(!dentistData){
+            dentistData = await requestDentistData(dentistId);
+            dentistCache.set(dentistId, dentistData);
+        }
+        
+        const availability = await Availability.findOne({
+            dentist: dentistId,
+            "timeSlots.start": { $lte: new Date(timeSlot.start) },
+            "timeSlots.end": { $gte: new Date(timeSlot.end) },
+            "timeSlots.status": "available",
+          });
+    
+        if (!availability) {
+            res.status(400).json({ message: "The selected time slot is unavailable." });
+            mqttHandler.publishWithIsolation(
+            "pearl-fix/booking/create/authenticate",
+            JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
+            );
+            return;
+        }
 
-    const [patientData, dentistData] = await Promise.all([
-      requestPatientData(patientEmail),
-      requestDentistData(dentistId),
-    ]);
+        const slotIndex = availability.timeSlots.findIndex(
+            (slot) =>
+            slot.start.getTime() === new Date(timeSlot.start).getTime() &&
+            slot.end.getTime() === new Date(timeSlot.end).getTime() &&
+            slot.status === "available"
+        );
 
-    // Cache the patient and dentist data for further use
-    cache.patient = patientData;
-    cache.dentist = dentistData;
+        if (slotIndex === -1) {
+            res.status(400).json({ message: "The selected time slot is unavailable." });
+            mqttHandler.publishWithIsolation(
+                "pearl-fix/booking/create/authenticate",
+                JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
+            );
+            return;
+        }
+        
+        // Update the availability first
+        const updateResult = await Availability.updateOne(
+          { _id: availability._id, 'timeSlots._id': availability.timeSlots[slotIndex]._id },
+          { $set: { 'timeSlots.$.status': 'booked' } }
+        );
+        
+        // Only create a booking if update has been successful.
+        if(updateResult.modifiedCount > 0){
+          const booking = new Booking({
+            dentistId,
+            patientId: patientData._id,
+            clinicId: availability.clinicId,
+            availabilityId: availability._id,
+            timeSlot,
+            status: "booked",
+          });
 
-    const availability = await Availability.findOne({
-      dentist: dentistId,
-      "timeSlots.start": { $lte: new Date(timeSlot.start) },
-      "timeSlots.end": { $gte: new Date(timeSlot.end) },
-      "timeSlots.status": "available",
-    });
+          await booking.save();
 
-    if (!availability) {
-      res.status(400).json({ message: "The selected time slot is unavailable." });
-      await mqttHandler.publishWithIsolation(
-        "pearl-fix/booking/create/authenticate",
-        JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
-      );
-      return;
-    }
+          res.status(201).json({ message: "Booking created successfully", booking });
 
-    const slotIndex = availability.timeSlots.findIndex(
-      (slot) =>
-        slot.start.toISOString() === new Date(timeSlot.start).toISOString() &&
-        slot.end.toISOString() === new Date(timeSlot.end).toISOString() &&
-        slot.status === "available"
-    );
-
-    if (slotIndex === -1) {
-      res.status(400).json({ message: "The selected time slot is unavailable." });
-      await mqttHandler.publishWithIsolation(
-        "pearl-fix/booking/create/authenticate",
-        JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
-      );
-      return;
-    }
-
-    const booking = new Booking({
-      dentistId,
-      patientId: patientData._id,
-      clinicId: availability.clinicId,
-      availabilityId: availability._id,
-      timeSlot,
-      status: "booked",
-    });
-
-    await booking.save();
-    availability.timeSlots[slotIndex].status = "booked";
-    await availability.save();
-
-    res.status(201).json({ message: "Booking created successfully", booking });
-
-    //await sendEmailConfirmation(patientEmail, patientData.name, timeSlot, "Clinic", "clinicAddress", dentistData.email);
-
-    await mqttHandler.publishWithIsolation(
-      "pearl-fix/booking/create/authenticate",
-      JSON.stringify({ success: true, message: "Booking created successfully." })
-    );
-  } catch (error) {
+          mqttHandler.publishWithIsolation(
+            "pearl-fix/booking/create/authenticate",
+                JSON.stringify({ success: true, message: "Booking created successfully." })
+            );
+        } else {
+             res.status(400).json({ message: "The selected time slot is unavailable." });
+             mqttHandler.publishWithIsolation(
+            "pearl-fix/booking/create/authenticate",
+                JSON.stringify({ success: false, message: "The selected time slot is unavailable." })
+            );
+             return;
+        }
+            
+    } catch (error) {
     console.error("Error creating booking:", error);
     res.status(500).json({ message: "Server error" });
-    await mqttHandler.publishWithIsolation(
-      "pearl-fix/booking/create/authenticate",
-      JSON.stringify({ success: false, message: "Server error" })
-    );
-  }
-};
 
+    }
+};
 
 const listenForPatientsBookings = async (): Promise<void> => {
   try {

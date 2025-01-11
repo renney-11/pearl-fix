@@ -35,8 +35,8 @@ const clinic = {
 // Test options for stress testing
 export let options = {
   stages: [
-    { duration: '1m', target: 1300 }, // Ramp-up to 1000 users over 1 minute
-    { duration: '1m', target: 700 }, // Stay at 1000 users for 30 minutes
+    { duration: '1m', target: 1000}, 
+    { duration: '1m', target: 500 }, 
     { duration: '1m', target:  0},   // Ramp-down to 0 users over 1 minute
   ],
 };
