@@ -34,4 +34,7 @@ const AvailabilitySchema: Schema = new Schema(
   { timestamps: true } // Add createdAt and updatedAt timestamps
 );
 
+// Add compound index for `dentist`, `timeSlots.start`, `timeSlots.end`, and `clinicId`
+AvailabilitySchema.index({ dentist: 1, 'timeSlots.start': 1, 'timeSlots.end': 1, clinicId: 1 });
+
 export default mongoose.model<IAvailability>("Availability", AvailabilitySchema);

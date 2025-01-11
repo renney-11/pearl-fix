@@ -306,28 +306,56 @@ const handleClinicDetails = async (mqttHandler, timeSlots, dentistId) => {
   });
 };
 
+interface DentistRequest {
+  email: string;
+  resolve: (data: any) => void;
+  reject: (error: Error) => void;
+}
+
+// message queue 
+const dentistQueue: DentistRequest[] = [];
+
+const processDentistQueue = () => {
+  if (dentistQueue.length > 0) {
+    const { email, resolve, reject } = dentistQueue.shift()!;
+    mqttHandler.publish("pearl-fix/availability/create/email", JSON.stringify({ email }))
+      .then(() => {
+        mqttHandler.subscribe("pearl-fix/availability/create/dentist", (message) => {
+          const dentistData = JSON.parse(message).dentist;
+          if (dentistData) {
+            resolve(dentistData);
+          } else {
+            reject(new Error("Dentist data not found"));
+          }
+        });
+      })
+      .catch(reject);
+  }
+};
+
+// Function to request dentist data
+const requestDentistData = (email: string): Promise<any> => {
+  return new Promise((resolve, reject) => {
+    dentistQueue.push({ email, resolve, reject });
+    processDentistQueue();
+  });
+};
 
 // In-memory cache to store dentist data
 const cache = {
   dentist: null as any, // Will hold dentist data
 };
 
-export const createAvailability: RequestHandler = async (req, res): Promise<void> => {
+export const createAvailability: RequestHandler = async (req, res) => {
   const { dentist, workDays, timeSlots, date, clinicId } = req.body;
 
   try {
     await mqttHandler.connect();
 
-    // Check if a valid dentist email or ID is provided
-    if (!dentist || typeof dentist !== "string" || dentist.trim() === "") {
-      res.status(400).json({ message: "No valid dentist provided in request." });
-      return;
-    }
-
     // Check if dentist data is already cached
     let cachedDentist = cache.dentist;
 
-    if (!cachedDentist) {
+    if (!cachedDentist || cachedDentist.email !== dentist) {
       // Publish dentist email or ID to the topic
       await mqttHandler.publishWithIsolation(
         "pearl-fix/availability/create/email",
@@ -369,61 +397,29 @@ export const createAvailability: RequestHandler = async (req, res): Promise<void
     }
 
     const dentistId = cachedDentist._id;
-
-    // Use the provided date for time slots
     const baseDate = new Date(date);
-
-    // Convert timeSlots to proper Date objects with the correct date
     const formattedTimeSlots = timeSlots.map((slot: { start: string; end: string }) => {
-      const startTimeParts = slot.start.split(":");
-      const endTimeParts = slot.end.split(":");
+      const start = new Date(baseDate);
+      const end = new Date(baseDate);
+      const [startHour, startMinute] = slot.start.split(":").map(Number);
+      const [endHour, endMinute] = slot.end.split(":").map(Number);
 
-      const startDate = new Date(baseDate);
-      startDate.setHours(parseInt(startTimeParts[0]), parseInt(startTimeParts[1]), 0, 0);
-      
-      const endDate = new Date(baseDate);
-      endDate.setHours(parseInt(endTimeParts[0]), parseInt(endTimeParts[1]), 0, 0);
+      start.setHours(startHour, startMinute, 0, 0);
+      end.setHours(endHour, endMinute, 0, 0);
 
-      return {
-        start: startDate,
-        end: endDate,
-        status: "available",
-      };
+      return { start, end, status: "available" };
     });
 
-    // Create availability document
-    const availability = new Availability({
-      dentist: dentistId,
-      workDays,
-      timeSlots: formattedTimeSlots,
-      clinicId,
-    });
-
-    // Save availability document to DB
+    const availability = new Availability({ dentist: dentistId, workDays, timeSlots: formattedTimeSlots, clinicId });
     await availability.save();
 
-    // Respond with the created availability and its ID
-    res.status(201).json({
-      message: "Availability created successfully.",
-      availability: {
-        dentist: dentistId,
-        workDays: availability.workDays,
-        timeSlots: formattedTimeSlots,
-        clinicId,
-      },
-    });
-
-    await mqttHandler.publishWithIsolation(
-      "pearl-fix/availability/create/id",
-      JSON.stringify({ id: availability.id, email: dentist })
-    );
-
+    res.status(201).json({ message: "Availability created successfully.", availability });
+    await mqttHandler.publish("pearl-fix/availability/create/id", JSON.stringify({ id: availability.id, email: dentist }));
   } catch (error) {
     console.error("Error creating availability:", error);
     res.status(500).json({ message: "Server error." });
   }
 };
-
 
 export const getAvailability: RequestHandler = async (req, res): Promise<void> => {
   // pearl-fix/availability/get/clinic-id
