@@ -12,10 +12,10 @@ export default function Booking() {
   const [selectedClinicAddress, setSelectedClinicAddress] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
-
+  
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
-  const [responseMessageType, setResponseMessageType] = useState<"success" | "error" | null>(null); // success or error
-
+  const [responseMessageType, setResponseMessageType] = useState<"success" | "error" | null>(null);
+  const [loading, setLoading] = useState(false);
 
 /*
   const fetchUserEmail = async (token: string) => {
@@ -81,19 +81,15 @@ export default function Booking() {
     // Parse the stored selected date to a Date object
     const selectedDate = new Date(storedDate);
 
-    // Extract the hours and minutes from selectedTime (e.g., "14:00")
     const [selectedHours, selectedMinutes] = storedTime.split(":").map(Number);
 
-    // Set the time of the selected date based on selectedTime (use hours and minutes)
-    selectedDate.setHours(selectedHours, selectedMinutes, 0, 0);  // Set hours, minutes, and reset seconds and milliseconds
+    selectedDate.setHours(selectedHours, selectedMinutes, 0, 0);
 
-    // The start time is the updated selectedDate
-    const start = selectedDate.toISOString();  // Convert to ISO string
+    const start = selectedDate.toISOString();
 
-    // Create the end time (1 hour after the selected start time)
     const end = new Date(selectedDate);
-    end.setHours(selectedDate.getHours() + 1);  // Add 1 hour to the start time
-    const endFormatted = end.toISOString();  // Convert to ISO string
+    end.setHours(selectedDate.getHours() + 1);
+    const endFormatted = end.toISOString();
 
     return { start, end: endFormatted };
   };
@@ -119,7 +115,7 @@ export default function Booking() {
       patientEmail: selectedEmail,
       timeSlot: { "start": start, "end": end },
     };
-  
+    setLoading(true); 
     try {
       const response = await fetch("/api/createBooking", {
         method: "POST",
@@ -139,6 +135,8 @@ export default function Booking() {
       console.error("Error saving booking:", err);
       setResponseMessage("An error occurred while saving the booking.");
       setResponseMessageType("error");
+    } finally {
+      setLoading(false); // Reset loading state once booking is complete
     }
   };
 
@@ -309,10 +307,11 @@ export default function Booking() {
             <div className="flex items-center justify-center mt-4">
             <button
             type="button"
+            disabled={loading}
             className="px-8 py-3 text-white font-semibold bg-main-blue rounded-lg shadow-md hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 active:scale-95 transition-all duration-300 ease-in-out"
             onClick={createBooking}
           >
-            confirm appointment
+           {loading ? "Booking..." : "Confirm Appointment"}
           </button>
 
             </div>

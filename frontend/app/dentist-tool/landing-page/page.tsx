@@ -40,7 +40,7 @@ const DentistLandingPage: React.FC = () => {
       <main className="text-center p-8 min-h-screen flex flex-col items-center justify-start mt-12">
         <h2 className="text-4xl font-bold mb-16 text-[rgba(30,53,130,255)]">Your Dental Services</h2>
         
-        {/* flex container for responsiveness */}
+        {/* flex container */}
         <div className="flex flex-wrap justify-center gap-8 w-full max-w-screen-xl px-8">
           {services.map((service) => (
             <a

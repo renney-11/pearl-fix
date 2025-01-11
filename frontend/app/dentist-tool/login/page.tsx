@@ -16,7 +16,7 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent form submission before validation
+    e.preventDefault();
 
     if (formData.password.length < 8) {
       alert("Your password cannot be less than 8 characters.");
@@ -58,7 +58,7 @@ export default function Login() {
       console.error("Error logging in:", err);
       alert("Failed to send login data. Please try again later.");
     } finally {
-      setLoading(false); // Reset loading state
+      setLoading(false);
     }
   };
 

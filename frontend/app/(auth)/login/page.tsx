@@ -16,14 +16,14 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent form submission before validation
+    e.preventDefault(); // Prevents form submission before validation
 
     if (formData.password.length < 8) {
       alert("Your password cannot be less than 8 characters.");
       return;
     }
 
-    setLoading(true); // Set loading only after validation passes
+    setLoading(true);
 
     try {
       const response = await fetch("/api/login", {
@@ -57,7 +57,7 @@ export default function Login() {
       console.error("Error logging in:", err);
       alert("Failed to send login data. Please try again later.");
     } finally {
-      setLoading(false); // Reset loading state
+      setLoading(false);
     }
   };
 

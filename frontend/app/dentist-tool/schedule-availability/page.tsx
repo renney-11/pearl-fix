@@ -13,7 +13,7 @@ export default function Appointment() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDayUnavailable, setIsDayUnavailable] = useState(false);
   const [isDateBlocked, setIsDateBlocked] = useState(false);
-  const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
+  const [holidays, setHolidays] = useState<string[]>([]); // holidays
 
   const allSlots = [
     "07:00", "08:00", "09:00", "10:00", "11:00", "12:00",
@@ -30,7 +30,7 @@ export default function Appointment() {
     const fetchHolidays = async () => {
       try {
         const response = await fetch(
-          `https://calendarific.com/api/v2/holidays?api_key=HHCAcL6QW2USf32b9w3CqcvyQBMEZL7M&country=SE&year=${currentYear}`
+          `https://calendarific.com/api/v2/holidays?api_key=S35QS61UPQSB5Ht7UZ4avOBa4EUwXyoG&country=SE&year=${currentYear}`
         );
         const data = await response.json();
         if (data && data.response && data.response.holidays) {
@@ -83,7 +83,7 @@ export default function Appointment() {
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
-      const dateKey = `${year}-${month + 1}-${day}`; // Adjusted month indexing
+      const dateKey = `${year}-${month + 1}-${day}`;
 
       dayElement.className =
         "text-center py-2 border cursor-pointer hover:bg-gray-200 text-xs sm:text-base";
@@ -174,7 +174,7 @@ export default function Appointment() {
 
   const toggleSlotAvailability = (slot: string) => {
     const [hour, minute] = slot.split(":").map(Number);
-    const start = new Date(selectedDate);  // Use the selectedDate for the base
+    const start = new Date(selectedDate);
     start.setHours(hour, minute, 0, 0);
     const end = new Date(start);
     end.setHours(hour + 1, minute, 0, 0);
