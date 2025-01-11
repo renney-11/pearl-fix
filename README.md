@@ -19,7 +19,7 @@ The architecture of Pearl Fix follows a **Service-Oriented Architecture (SOA)** 
 </details>
 
 <details>
-  <summary><strong>ER Diagram</strong></summary>
+  <summary><strong>Deployment Diagram</strong></summary>
   <img src="./docs/architecture/deployment-diagram.png" alt="Deployment Diagram">
 </details>
 ## Social Contract
