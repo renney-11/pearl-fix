@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
+import amqp, { Connection, Channel } from "amqplib";
 
 let connection: Connection | null = null;
 let channel: Channel | null = null;

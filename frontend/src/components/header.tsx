@@ -12,33 +12,51 @@ export default function Header() {
     setIsAuthenticated(!!token);
   }, []);
 
-  // Logout function
   const handleLogout = async () => {
     try {
-      // Call the purge API
-      const response = await fetch("/api/purge", { method: "POST" });
-      if (response.ok) {
+      const email = sessionStorage.getItem("email");
+  
+      if (email) {
+        const logoutResponse = await fetch("/api/logout", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+  
+        if (!logoutResponse.ok) {
+          console.error("Failed to send logout message");
+          return;
+        }
+        console.log("Logout message sent successfully.");
+      } else {
+        console.error("Email not found in session storage.");
+      }
+  
+      const purgeResponse = await fetch("/api/purge", { method: "POST" });
+      if (purgeResponse.ok) {
         console.log("Queues purged successfully.");
       } else {
         console.error("Failed to purge queues.");
       }
+  
+      // Clear session data
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("email");
+      sessionStorage.removeItem("clinic");
+      sessionStorage.removeItem("clinicAddress");
+      sessionStorage.removeItem("clinicName");
+      sessionStorage.removeItem("dentist");
+      sessionStorage.removeItem("selectedTime");
+      sessionStorage.removeItem("selectedDate");
+        
+      setIsAuthenticated(false);
+      router.push("/");
     } catch (error) {
-      console.error("Error calling purge API:", error);
+      console.error("Error during logout:", error);
     }
-
-    // Clear session data
-    sessionStorage.removeItem("authToken");
-    sessionStorage.removeItem("email");
-    sessionStorage.removeItem("clinic");
-    sessionStorage.removeItem("clinicAddress");
-    sessionStorage.removeItem("clinicName");
-    sessionStorage.removeItem("dentist");
-    sessionStorage.removeItem("selectedTime");
-    sessionStorage.removeItem("selectedDate");
-
-    setIsAuthenticated(false);
-    router.push("/"); // Redirect to home page
-  };
+  };  
 
 
   return (

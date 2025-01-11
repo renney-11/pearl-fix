@@ -8,7 +8,8 @@ import Dentist, { IDentist } from "../models/Dentist";
 import Patient, { IPatient } from "../models/Patient";
 import { MQTTHandler } from "../mqtt/MqttHandler";
 import { generateToken } from "../utils/tokenUtils"; // Import generateToken
-
+import { register as prometheusRegister } from "prom-client";
+import { Gauge } from "prom-client";
 
 declare global {
   namespace Express {
@@ -21,6 +22,20 @@ declare global {
   }
 }
 
+const patientLoggedInGauge = new Gauge({
+  name: "patient_logged_in_total",
+  help: "Current number of logged-in patients",
+});
+
+// Increment on login
+export const incrementLoginGauge = () => {
+  patientLoggedInGauge.inc();
+};
+
+// Decrement on logout
+export const decrementLoginGauge = () => {
+  patientLoggedInGauge.dec();
+};
 
 const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
 
@@ -137,6 +152,14 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           "pearl-fix/authentication/authenticate",
           JSON.stringify({ token })
         );
+
+        if (patient && (await bcrypt.compare(password, patient.password))) {
+          const token = await generateToken({ id: patient.id, type: "patient" });
+          await mqttHandler.publish("pearl-fix/authentication/authenticate", JSON.stringify({ token }));
+          incrementLoginGauge(); // Increment the Gauge
+        }
+    
+
         console.log("Login successful and token published for email:", email);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
@@ -193,6 +216,7 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
           "pearl-fix/authentication/dentist/authenticate",
           JSON.stringify({ token })
         );
+        incrementLoginGauge(); // Increment the Gauge
         console.log("Login successful and token published for email:", email);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
@@ -205,46 +229,26 @@ const mqttHandler = new MQTTHandler(process.env.CLOUDAMQP_URL!);
       }
     });
 
-    // Create booking with patient
-    await mqttHandler.subscribe("pearl-fix/booking/create/patient/email", async (msg) => {
+    // Logout count
+    await mqttHandler.subscribe("pearl-fix/patient/logout", async (msg) => {
       try {
-        console.log("Message received from booking-service:", msg);
-        let parsedMessage;
-        try {
-          parsedMessage = JSON.parse(msg);
-        } catch (err) {
-          console.error("Failed to parse create booking message:", err);
-          return;
-        }
-
+        const parsedMessage = JSON.parse(msg);
         const { email } = parsedMessage;
-
+    
         if (!email) {
-          console.error("Missing patient email in create booking request");
-          await mqttHandler.publish(
-            "pearl-fix/booking/create/patient",
-            JSON.stringify({ message: "Missing email" })
-          );
+          console.error("Missing email in logout message");
           return;
         }
-        let patient: IPatient | null = await Patient.findOne({ email });
-        if (!patient) {
-          await mqttHandler.publish(
-            "pearl-fix/booking/create/patient",
-            JSON.stringify({ error: "Patient with this email does not exist." })
-          );
-          return;
-        }
-        await mqttHandler.publish(
-          "pearl-fix/booking/create/patient",
-          JSON.stringify({ patient })
-        );
-        console.log("Patient found successfully", patient);
+    
+        // Decrement the Gauge
+        decrementLoginGauge();
+        console.log(`Patient logged out: ${email}.`);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        console.error("Error processing find patient message:", errorMessage);
+        console.error("Error processing logout message:", err);
       }
     });
+    
+    
     await mqttHandler.subscribe("pearl-fix/booking/update/patient", handleBookingUpdatePatientMessage);
 
     await mqttHandler.subscribe("pearl-fix/booking/update/dentist", handleBookingUpdateDentistMessage);
@@ -457,6 +461,7 @@ mqttHandler.subscribe("pearl-fix/booking/find/dentist-id", async (msg) => {
   }
 });
 
+<<<<<<< HEAD
 // get dentist email from id (to give for createBooking)
 mqttHandler.subscribe("pearl-fix/booking/find/dentist/email", async (msg) => {
   try {
@@ -483,10 +488,41 @@ mqttHandler.subscribe("pearl-fix/booking/find/dentist/email", async (msg) => {
     console.log(`Published dentistEmail to "pearl-fix/booking/found/dentist/email": ${dentistEmail}`);
   } catch (error) {
     console.error("Error processing dentist email:", error);
+=======
+mqttHandler.subscribeWithIsolation("pearl-fix/booking/find/dentist/email", async (msg, channel) => {
+  try {
+    const { dentistId } = JSON.parse(msg.content.toString());
+    if (!dentistId) {
+      console.error("Received dentistId is missing.");
+      channel.ack(msg); // Acknowledge even if invalid
+      return;
+    }
+    const dentist = await Dentist.findById(dentistId).select("email");
+    if (!dentist) {
+      console.error("Dentist not found in the database.");
+      channel.ack(msg); // Acknowledge even if not found
+      return;
+    }
+    const dentistEmail = dentist.email;
+    console.log("Found dentistEmail:", dentistEmail);
+    await mqttHandler.publish(
+      "pearl-fix/booking/found/dentist/email",
+      JSON.stringify({ dentistEmail })
+    );
+    console.log(`Published dentistEmail to "pearl-fix/booking/found/dentist/email": ${dentistEmail}`);
+    channel.ack(msg); // Acknowledge after success
+  } catch (error) {
+    console.error("Error processing dentist email:", error);
+    channel.ack(msg); // Always acknowledge to avoid retries
+>>>>>>> 86b5f7d422aab00ea76aad02cf408f79deb7dff4
   }
 });
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 86b5f7d422aab00ea76aad02cf408f79deb7dff4
     // Subscribe to the topic where the booking service requests to find a dentist for a clinic
 await mqttHandler.subscribe("pearl-fix/booking/find/dentist/for-clinic", async (msg) => {
   try {
@@ -722,6 +758,47 @@ await mqttHandler.subscribe("pearl-fix/booking/canceled", async (msg) => {
   
 })();
 
+(async () => {
+  try {
+    await mqttHandler.connect();
+
+    // Create booking with patient
+    await mqttHandler.subscribeWithIsolation("pearl-fix/booking/create/patient/email", async (msg, channel) => {
+      try {
+        console.log("Message received:", msg.content.toString());
+        const parsedMessage = JSON.parse(msg.content.toString());
+        const { email } = parsedMessage;
+
+        if (!email) {
+          console.error("Missing patient email");
+        } else {
+          const patient = await Patient.findOne({ email });
+          if (patient) {
+            await mqttHandler.publishWithIsolation(
+              "pearl-fix/booking/create/patient",
+              JSON.stringify({ patient })
+            );
+            console.log("Published patient successfully");
+          } else {
+            console.error("Patient not found");
+          }
+        }
+      } catch (err) {
+        console.error("Error processing message:", err);
+      } finally {
+        try {
+          channel.ack(msg); // Acknowledge message to prevent re-delivery
+          console.log("Acknowledged message");
+        } catch (ackError) {
+          console.error("Error acknowledging message:", ackError);
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Error during MQTTHandler initialization:", err);
+  }
+})();
+
     // Update the dentist's availability and bookings fields
 const handleBookingUpdateDentistMessage = async (msg: string): Promise<void> => {
   try {
@@ -914,6 +991,13 @@ export const register: RequestHandler = async (req, res): Promise<void> => {
 export const login: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to login users" });
 };
+
+// Expose Prometheus metrics
+export const metrics: RequestHandler = async (req, res): Promise<void> => {
+  res.set("Content-Type", prometheusRegister.contentType);
+  res.end(await prometheusRegister.metrics());
+};
+
 
 export const getCurrentUser: RequestHandler = async (req, res): Promise<void> => {
   res.status(405).json({ message: "Use the message queue to getCurrent users" });
