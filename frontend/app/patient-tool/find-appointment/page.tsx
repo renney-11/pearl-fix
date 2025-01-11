@@ -12,13 +12,12 @@ export default function Appointment() {
   const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [availabilities, setAvailabilities] = useState<Record<string, any> | null>(null);
-  const [holidays, setHolidays] = useState<string[]>([]); // Store holidays
+  const [holidays, setHolidays] = useState<string[]>([]);
   const [dentistId, setDentistId] = useState<string | null>(null);
   const [clinicId, setClinicId] = useState<string | null>(null);   
   const router = useRouter();
 
 
-  // Fetch availabilities on component mount
   useEffect(() => {
     const fetchAvailabilities = async () => {
       try {
@@ -34,18 +33,16 @@ export default function Appointment() {
           let extractedDentistId = null;
     
           data.timeSlots.forEach((slot) => {
-            // Parse the start and end dates
             const correctedStartDate = new Date(slot.start);
             const correctedEndDate = new Date(slot.end);
     
-            // Adjust for one day earlier (if needed) and one hour later
-            correctedStartDate.setUTCDate(correctedStartDate.getUTCDate() - 1); // Adjust for day offset
-            correctedStartDate.setUTCHours(correctedStartDate.getUTCHours() + 1); // Shift time by 1 hour
+            correctedStartDate.setUTCDate(correctedStartDate.getUTCDate() - 1);
+            correctedStartDate.setUTCHours(correctedStartDate.getUTCHours() + 1);
     
-            correctedEndDate.setUTCDate(correctedEndDate.getUTCDate() - 1); // Adjust for day offset
-            correctedEndDate.setUTCHours(correctedEndDate.getUTCHours() + 1); // Shift time by 1 hour
+            correctedEndDate.setUTCDate(correctedEndDate.getUTCDate() - 1);
+            correctedEndDate.setUTCHours(correctedEndDate.getUTCHours() + 1);
     
-            const dateKey = correctedStartDate.toISOString().split("T")[0]; // Corrected YYYY-MM-DD
+            const dateKey = correctedStartDate.toISOString().split("T")[0];
             if (!transformedAvailabilities[dateKey]) {
               transformedAvailabilities[dateKey] = { timeSlots: [] };
             }
@@ -53,11 +50,10 @@ export default function Appointment() {
               extractedDentistId = slot.dentist;
             }
     
-            // Push the corrected time slot
             transformedAvailabilities[dateKey].timeSlots.push({
               ...slot,
-              start: correctedStartDate.toISOString(), // Save the adjusted start time
-              end: correctedEndDate.toISOString(), // Save the adjusted end time
+              start: correctedStartDate.toISOString(),
+              end: correctedEndDate.toISOString(),
             });
           });
     
@@ -79,10 +75,9 @@ export default function Appointment() {
     
 
     fetchAvailabilities();
-  }, []); // Only on mount
+  }, []);
 
 
-  // Re-render calendar when year, month, or availabilities change
   useEffect(() => {
     generateCalendar(currentYear, currentMonth);
   }, [currentYear, currentMonth, availabilities]); // Trigger on availabilities change
@@ -107,7 +102,6 @@ export default function Appointment() {
   }, [currentYear]);
 
 
-  // Generate the calendar for a given year and month
   const generateCalendar = (year: number, month: number) => {
     const calendarElement = document.getElementById("calendar");
     const currentMonthElement = document.getElementById("currentMonth");
@@ -131,7 +125,7 @@ export default function Appointment() {
     const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
     const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-    // Add headers for days of the week
+    //headers
     daysOfWeek.forEach((day) => {
       const dayElement = document.createElement("div");
       dayElement.className = "text-center font-semibold text-almost-black text-xs sm:text-base";
@@ -139,13 +133,12 @@ export default function Appointment() {
       calendarElement.appendChild(dayElement);
     });
 
-    // Add empty slots for days before the first day of the month
+    // empty slots for days before the first day of the month
     for (let i = 0; i < firstDayOfWeek; i++) {
       const emptyDayElement = document.createElement("div");
       calendarElement.appendChild(emptyDayElement);
     }
 
-    // Loop through all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayElement = document.createElement("div");
       const currentDate = new Date(year, month, day);
@@ -169,7 +162,7 @@ export default function Appointment() {
           "text-center py-2 border text-gray-300 cursor-not-allowed text-xs sm:text-base";
       }
 
-      // Highlight selected date
+      // Highlights selected date
       if (
         selectedDate &&
         currentDate.getFullYear() === selectedDate.getFullYear() &&
@@ -186,7 +179,6 @@ export default function Appointment() {
       }
     }
     
-    // Disable previous button if viewing the current month
     if (year === today.getFullYear() && month === today.getMonth()) {
       prevButton.disabled = true;
       prevButton.classList.add("opacity-0");
@@ -199,12 +191,12 @@ export default function Appointment() {
 
   // Handle date selection
   const handleDateSelection = (date) => {
-    const formattedDate = date.toISOString().split("T")[0]; // Use the corrected YYYY-MM-DD format
+    const formattedDate = date.toISOString().split("T")[0]; // YYYY-MM-DD 
     setSelectedDate(date);
   
     if (availabilities && availabilities[formattedDate]?.timeSlots) {
       const formattedTimes = availabilities[formattedDate].timeSlots.map((slot) => {
-        const time = new Date(slot.start); // Slot times are already adjusted
+        const time = new Date(slot.start); 
         const hours = time.getUTCHours();
         const minutes = time.getUTCMinutes();
         return `${hours}:${minutes < 10 ? '0' + minutes : minutes}`;
@@ -217,7 +209,6 @@ export default function Appointment() {
   };
   
 
-  // Handle saving the booking
   const handleSave = async () => {
     console.log("Selected Date:", selectedDate);
     console.log("Selected Time:", selectedTime);
@@ -240,7 +231,6 @@ export default function Appointment() {
         body: JSON.stringify(payload),
       });
   
-      // Save both date and time in sessionStorage
       sessionStorage.setItem("selectedDate", selectedDate.toISOString());
       sessionStorage.setItem("selectedTime", selectedTime);
       sessionStorage.setItem("dentist", dentistId);

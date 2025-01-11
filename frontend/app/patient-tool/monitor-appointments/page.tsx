@@ -6,16 +6,16 @@ import React, { useEffect, useRef, useState } from "react";
 import { faFaceSadTear, faHospitalUser } from '@fortawesome/free-solid-svg-icons';
 
 interface Booking {
-  dentistId: string; // Reference to the Dentist
-  patientId: string; // Reference to the Patient
-  availabilityId: string; // Reference to Availability
+  dentistId: string;
+  patientId: string;
+  availabilityId: string;
   bookingId: string;
   timeSlot: {
     start: Date;
     end: Date;
   };
   status: "available" | "booked";
-  clinicName: string; // Reference to the Clinic (optional)
+  clinicName: string;
   clinicAddress: string;
 }
 
@@ -58,12 +58,11 @@ export default function UpcomingAppointments() {
               clinicAddress: booking.clinicAddress || "Unknown Address",
             }));
 
-            // Remove duplicate bookings based on time slot
             const uniqueBookings = removeDuplicateBookings(transformedBookings);
 
             setBookings(uniqueBookings);
           } else {
-            setBookings([]); // No bookings found
+            setBookings([]);
           }
         } else {
           console.error("Failed to fetch bookings");
@@ -79,16 +78,15 @@ export default function UpcomingAppointments() {
   }, [selectedEmail]);
 
 
-  // Function to remove duplicate bookings based on time slot
   const removeDuplicateBookings = (bookings: Booking[]): Booking[] => {
-    const seenTimeSlots = new Set<string>(); // Store unique time slots as strings
+    const seenTimeSlots = new Set<string>();
     return bookings.filter((booking) => {
       const timeSlotKey = `${booking.timeSlot.start.toISOString()}_${booking.timeSlot.end.toISOString()}`;
       if (seenTimeSlots.has(timeSlotKey)) {
-        return false; // Duplicate detected, exclude from the result
+        return false; 
       }
       seenTimeSlots.add(timeSlotKey);
-      return true; // Unique time slot, include in the result
+      return true;
     });
   };
 
@@ -108,7 +106,7 @@ export default function UpcomingAppointments() {
       const response = await fetch("/api/cancelBooking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bookingId: bookingId, patientEmail: selectedEmail}), // Pass the correct field
+        body: JSON.stringify({ bookingId: bookingId, patientEmail: selectedEmail}),
       });
       const cancelResponse = await response.json();
     } catch (error) {
@@ -132,7 +130,6 @@ export default function UpcomingAppointments() {
     return groups;
   }, {});
 
-  // Helper function to remove ordinal suffixes
   const removeOrdinalSuffix = (dateString: string) => {
     return dateString.replace(/(\d+)(st|nd|rd|th)/, "$1");
   };
@@ -191,7 +188,6 @@ export default function UpcomingAppointments() {
                 </div>
               </div>
             ) : (
-              // Loop through grouped bookings
               Object.keys(groupedBookings).map((date, index) => (
                 <div key={index}>
                   {/* Date Header */}

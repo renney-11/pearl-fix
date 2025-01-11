@@ -14,7 +14,7 @@ export default function Booking() {
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
   
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
-  const [responseMessageType, setResponseMessageType] = useState<"success" | "error" | null>(null); // success or error
+  const [responseMessageType, setResponseMessageType] = useState<"success" | "error" | null>(null);
   const [loading, setLoading] = useState(false);
 
 /*
@@ -81,19 +81,15 @@ export default function Booking() {
     // Parse the stored selected date to a Date object
     const selectedDate = new Date(storedDate);
 
-    // Extract the hours and minutes from selectedTime (e.g., "14:00")
     const [selectedHours, selectedMinutes] = storedTime.split(":").map(Number);
 
-    // Set the time of the selected date based on selectedTime (use hours and minutes)
-    selectedDate.setHours(selectedHours, selectedMinutes, 0, 0);  // Set hours, minutes, and reset seconds and milliseconds
+    selectedDate.setHours(selectedHours, selectedMinutes, 0, 0);
 
-    // The start time is the updated selectedDate
-    const start = selectedDate.toISOString();  // Convert to ISO string
+    const start = selectedDate.toISOString();
 
-    // Create the end time (1 hour after the selected start time)
     const end = new Date(selectedDate);
-    end.setHours(selectedDate.getHours() + 1);  // Add 1 hour to the start time
-    const endFormatted = end.toISOString();  // Convert to ISO string
+    end.setHours(selectedDate.getHours() + 1);
+    const endFormatted = end.toISOString();
 
     return { start, end: endFormatted };
   };

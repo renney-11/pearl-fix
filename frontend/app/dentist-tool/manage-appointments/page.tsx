@@ -6,16 +6,16 @@ import { faHospitalUser } from '@fortawesome/free-solid-svg-icons';
 import React, { useEffect, useRef, useState } from "react";
 
 interface Booking {
-  dentistId: string; // Reference to the Dentist
-  patientId: string; // Reference to the Patient
-  availabilityId: string; // Reference to Availability
+  dentistId: string;
+  patientId: string;
+  availabilityId: string;
   bookingId: string;
   timeSlot: {
     start: Date;
     end: Date;
   };
   status: "available" | "booked";
-  patientName: string; // Reference to the Clinic (optional)
+  patientName: string;
   patientEmail: string;
 }
 
@@ -60,12 +60,11 @@ export default function UpcomingAppointments() {
               patientEmail: booking.patientEmail,
             }));
 
-            // Remove duplicate bookings based on time slot
             const uniqueBookingsList = removeDuplicateBookings(transformedBookings);
 
             setBookings(uniqueBookingsList);
           } else {
-            setBookings([]); // No bookings found
+            setBookings([]);
           }
         } else {
           console.error("Failed to fetch bookings");
