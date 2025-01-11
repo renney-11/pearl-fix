@@ -30,7 +30,7 @@ export default function Appointment() {
     const fetchHolidays = async () => {
       try {
         const response = await fetch(
-          `https://calendarific.com/api/v2/holidays?api_key=HHCAcL6QW2USf32b9w3CqcvyQBMEZL7M&country=SE&year=${currentYear}`
+          `https://calendarific.com/api/v2/holidays?api_key=S35QS61UPQSB5Ht7UZ4avOBa4EUwXyoG&country=SE&year=${currentYear}`
         );
         const data = await response.json();
         if (data && data.response && data.response.holidays) {
