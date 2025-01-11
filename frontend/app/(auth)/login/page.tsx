@@ -16,7 +16,7 @@ export default function Login() {
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault(); // Prevent form submission before validation
+    e.preventDefault(); // Prevents form submission before validation
 
     if (formData.password.length < 8) {
       alert("Your password cannot be less than 8 characters.");
