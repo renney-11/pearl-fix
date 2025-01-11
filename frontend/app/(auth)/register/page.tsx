@@ -11,6 +11,7 @@ export default function SignUp() {
     confirmPassword: "",
     role: "patient",
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -34,6 +35,8 @@ export default function SignUp() {
       alert("password must be at least 8 characters");
       return;
     }
+
+    setLoading(true); 
 
     try {
       const response = await fetch("/api/register", {
@@ -64,11 +67,13 @@ export default function SignUp() {
         }
       } else {
         const error = await response.json();
-        alert(`Error: ${error.error}`);  // You can just show this alert without showing any error on the page.
+        alert(`Error: ${error.error}`);
       }
     } catch (err) {
       console.error("Error submitting form:", err);
       alert("Failed to send signup data.");
+    } finally {
+      setLoading(false); 
     }
   };
 
@@ -133,8 +138,9 @@ export default function SignUp() {
           <button
             type="submit"
             className="py-2 px-8 mt-4 bg-main-blue text-white rounded-full font-semibold hover:bg-blue-900 mx-auto block"
+            disabled={loading}
           >
-            Sign up
+            {loading ? "Signing up..." : "Sign up"} {/* Display "Signing up..." while loading */}
           </button>
         </form>
         <p className="mt-4 text-center text-main-blue">
