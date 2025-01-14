@@ -5,8 +5,6 @@ import {
     removeAvailability,
     getAvailabilitiesForClinic,
     metrics,
-    createAvailabilities,
-
 } from "../controllers/availabilityController";
 
 
@@ -18,7 +16,6 @@ router.route("/create").post(createAvailability);
 router.route("/clinic/:address").get(getAvailabilitiesForClinic);
 router.route("/:dentistId/:timeSlotId").delete(removeAvailability);
 router.route("/metrics").get(metrics);
-router.route("/create/availability").post(createAvailabilities);
 
 
 export default router;
